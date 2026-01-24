@@ -2694,351 +2694,289 @@ players,
   };
 
   
-const pickBattlefieldForPlayer = (pool: CardData[], usedIds: string[], desiredId: string | null): CardData => {
-  const remaining = pool.filter((b) => !usedIds.includes(b.id));
-  const candidates = remaining.length > 0 ? remaining : pool;
-  if (candidates.length === 0) throw new Error("Deck has no battlefields.");
-  if (desiredId) {
-    const found = candidates.find((b) => b.id === desiredId);
-    if (found) return found;
-  }
-  return candidates[Math.floor(Math.random() * candidates.length)];
-};
-
-const getGameWinner = (gs: GameState): PlayerId | null => {
-  const p1Win = gs.players.P1.points >= gs.victoryScore;
-  const p2Win = gs.players.P2.points >= gs.victoryScore;
-  if (p1Win && !p2Win) return "P1";
-  if (p2Win && !p1Win) return "P2";
-  // In unusual edge cases, fall back to no winner.
-  return null;
-};
-
-const deckBattlefieldsFor = (pid: PlayerId): CardData[] => {
-  const ids = builderDecks[pid]?.battlefields || [];
-  return ids.map((id) => getCardById(allCards, id)).filter((x): x is CardData => Boolean(x));
-};
-
-const startDeckBuilderDuel = (overrideFormat?: MatchFormat) => {
-  if (allCards.length === 0) return;
-
-  // New game => clear undo history
-  undoRef.current = [];
-  clearTransientUI();
-
-  const turn = 1;
-
-  try {
-    const p1Built = buildPlayerFromDeckSpec(allCards, "P1", builderDecks.P1, turn);
-    const p2Built = buildPlayerFromDeckSpec(allCards, "P2", builderDecks.P2, turn);
-
-      const fmt: MatchFormat = overrideFormat ?? matchFormat;
-
-    // Match init (only BO3 is a multi-game match; BO1 is a single game).
-    const baseMatchState: MatchState = {
-      format: "BO3",
-      gamesCompleted: 0,
-      wins: { P1: 0, P2: 0 },
-      usedBattlefieldIds: { P1: [], P2: [] },
-      lastGameWinner: null,
-    };
-    let ms: MatchState | null = fmt === "BO3" ? baseMatchState : null;
-
-    // Battlefield selection
-    const bf1 =
-      fmt === "BO1"
-        ? p1Built.battlefields[Math.floor(Math.random() * p1Built.battlefields.length)]
-        : pickBattlefieldForPlayer(p1Built.battlefields, (ms ?? baseMatchState).usedBattlefieldIds.P1, matchNextBattlefieldPick.P1);
-    const bf2 =
-      fmt === "BO1"
-        ? p2Built.battlefields[Math.floor(Math.random() * p2Built.battlefields.length)]
-        : pickBattlefieldForPlayer(p2Built.battlefields, (ms ?? baseMatchState).usedBattlefieldIds.P2, matchNextBattlefieldPick.P2);
-
-    if (fmt === "BO3") {
-      const resolvedMs = ms ?? baseMatchState;
-      ms = {
-        ...resolvedMs,
-        usedBattlefieldIds: {
-          P1: [...resolvedMs.usedBattlefieldIds.P1, bf1.id],
-          P2: [...resolvedMs.usedBattlefieldIds.P2, bf2.id],
-        },
-      };
-      setMatchState(ms);
-      setMatchNextBattlefieldPick({ P1: null, P2: null });
-    } else {
-      setMatchState(null);
-      setMatchNextBattlefieldPick({ P1: null, P2: null });
-    }
-
-    const players: Record<PlayerId, PlayerState> = {
-      P1: {
-        id: "P1",
-        legend: p1Built.legend,
-        legendReady: true,
-        championZone: p1Built.champion,
-        base: { units: [], gear: [] },
-        mainDeck: p1Built.mainDeck,
-        hand: [],
-        trash: [],
-        banishment: [],
-        runeDeck: p1Built.runeDeck,
-        runesInPlay: [],
-        runePool: emptyRunePool(),
-        points: 0,
-        domains: p1Built.domains,
-        mainDeckCardsPlayedThisTurn: 0,
-        scoredBattlefieldsThisTurn: [],
-        mulliganSelectedIds: [],
-        mulliganDone: false,
-      },
-      P2: {
-        id: "P2",
-        legend: p2Built.legend,
-        legendReady: true,
-        championZone: p2Built.champion,
-        base: { units: [], gear: [] },
-        mainDeck: p2Built.mainDeck,
-        hand: [],
-        trash: [],
-        banishment: [],
-        runeDeck: p2Built.runeDeck,
-        runesInPlay: [],
-        runePool: emptyRunePool(),
-        points: 0,
-        domains: p2Built.domains,
-        mainDeckCardsPlayedThisTurn: 0,
-        scoredBattlefieldsThisTurn: [],
-        mulliganSelectedIds: [],
-        mulliganDone: false,
-      },
-    };
-
-    const battlefields: BattlefieldState[] = [
-      {
-        index: 0,
-        card: bf1,
-        owner: "P1",
-        controller: null,
-        units: [],
-        gear: [],
-        facedown: null,
-        facedownOwner: null,
-        scoreLockedUntilTurn: null,
-        lastConqueredTurn: null,
-        battlefieldContinuous: [],
-      },
-      {
-        index: 1,
-        card: bf2,
-        owner: "P2",
-        controller: null,
-        units: [],
-        gear: [],
-        facedown: null,
-        facedownOwner: null,
-        scoreLockedUntilTurn: null,
-        lastConqueredTurn: null,
-        battlefieldContinuous: [],
-      },
-    ];
-
-    const first: PlayerId = Math.random() < 0.5 ? "P1" : "P2";
-
-    const matchLine =
-      fmt === "BO3" && ms
-        ? [`Match: Best of 3 • Game ${ms.gamesCompleted + 1} • Score P1 ${ms.wins.P1}-${ms.wins.P2} P2`]
-        : [];
-
-    const g: GameState = {
-      step: "MULLIGAN",
-      turnNumber: 1,
-      turnPlayer: first,
-      startingPlayer: first,
-      priorityPlayer: first,
-      passesInRow: 0,
-      state: "OPEN",
-      victoryScore: duelVictoryScore,
-      log: [
-        ...matchLine,
-        `Deck Builder Duel setup complete. First player: ${first}.`,
-        `P1 Legend: ${p1Built.legend.name} | Champion: ${p1Built.champion.name}`,
-        `P2 Legend: ${p2Built.legend.name} | Champion: ${p2Built.champion.name}`,
-        `Battlefield 1 (P1 choice): ${bf1.name}`,
-        `Battlefield 2 (P2 choice): ${bf2.name}`,
-      ],
-      actionHistory: [],
-      players,
-      battlefields,
-    };
-
-    // Initial hand: draw 4 each (setup).
-    drawCards(g, "P1", 4);
-    drawCards(g, "P2", 4);
-
-    cleanupStateBased(g);
-
-    setGame(g);
-    setViewerId(first);
-    setPreGameView("SETUP");
-    setSelectedHandCardId(null);
-    setPendingPlay(null);
-    setPendingDestination(null);
-    setPendingTargets([{ kind: "NONE" }]);
-    setPendingChainChoice(null);
-    setPendingAccelerate(false);
-    setHideChoice({ cardId: null, battlefieldIndex: null });
-    setMoveSelection({ from: null, unitIds: [], to: null });
-    setArenaMove(null);
-    setArenaHideCardId(null);
-    setHoverCard(null);
-  } catch (err: any) {
-    alert(String(err?.message || err));
-  }
-};
-
-const startNextBo3Game = () => {
-  if (!g) return;
-  if (!matchState || matchState.format !== "BO3") return;
-  if (g.step !== "GAME_OVER") return;
-
-  // First, commit the just-finished game's result into matchState.
-  const winner = getGameWinner(g);
-  const wins = { ...matchState.wins };
-  if (winner) wins[winner] = (wins[winner] || 0) + 1;
-
-  const msAfter: MatchState = {
-    ...matchState,
-    wins,
-    gamesCompleted: matchState.gamesCompleted + 1,
-    lastGameWinner: winner,
-  };
-
-  // If match is complete, just record it.
-  if (wins.P1 >= 2 || wins.P2 >= 2) {
-    setMatchState(msAfter);
-    return;
-  }
-
-  // Start next game
-  undoRef.current = [];
-  clearTransientUI();
-
-  const turn = 1;
-
-  try {
-    const p1Built = buildPlayerFromDeckSpec(allCards, "P1", builderDecks.P1, turn);
-    const p2Built = buildPlayerFromDeckSpec(allCards, "P2", builderDecks.P2, turn);
-
-    const bf1 = pickBattlefieldForPlayer(p1Built.battlefields, msAfter.usedBattlefieldIds.P1, matchNextBattlefieldPick.P1);
-    const bf2 = pickBattlefieldForPlayer(p2Built.battlefields, msAfter.usedBattlefieldIds.P2, matchNextBattlefieldPick.P2);
-
-    const msNext: MatchState = {
-      ...msAfter,
-      usedBattlefieldIds: {
-        P1: [...msAfter.usedBattlefieldIds.P1, bf1.id],
-        P2: [...msAfter.usedBattlefieldIds.P2, bf2.id],
-      },
-    };
-
-    setMatchState(msNext);
-    setMatchNextBattlefieldPick({ P1: null, P2: null });
-
-    const players: Record<PlayerId, PlayerState> = {
-      P1: {
-        id: "P1",
-        legend: p1Built.legend,
-        legendReady: true,
-        championZone: p1Built.champion,
-        base: { units: [], gear: [] },
-        mainDeck: p1Built.mainDeck,
-        hand: [],
-        trash: [],
-        banishment: [],
-        runeDeck: p1Built.runeDeck,
-        runesInPlay: [],
-        runePool: emptyRunePool(),
-        points: 0,
-        domains: p1Built.domains,
-        mainDeckCardsPlayedThisTurn: 0,
-        scoredBattlefieldsThisTurn: [],
-        mulliganSelectedIds: [],
-        mulliganDone: false,
-      },
-      P2: {
-        id: "P2",
-        legend: p2Built.legend,
-        legendReady: true,
-        championZone: p2Built.champion,
-        base: { units: [], gear: [] },
-        mainDeck: p2Built.mainDeck,
-        hand: [],
-        trash: [],
-        banishment: [],
-        runeDeck: p2Built.runeDeck,
-        runesInPlay: [],
-        runePool: emptyRunePool(),
-        points: 0,
-        domains: p2Built.domains,
-        mainDeckCardsPlayedThisTurn: 0,
-        scoredBattlefieldsThisTurn: [],
-        mulliganSelectedIds: [],
-        mulliganDone: false,
-      },
-    };
-
-    const battlefields: BattlefieldState[] = [
-      {
-        index: 0,
-        card: bf1,
-        owner: "P1",
-        controller: null,
-        units: [],
-        gear: [],
-        facedown: null,
-        facedownOwner: null,
-        scoreLockedUntilTurn: null,
-        lastConqueredTurn: null,
-        battlefieldContinuous: [],
-      },
-      {
-        index: 1,
-        card: bf2,
-        owner: "P2",
-        controller: null,
-        units: [],
-        gear: [],
-        facedown: null,
-        facedownOwner: null,
-        scoreLockedUntilTurn: null,
-        lastConqueredTurn: null,
-        battlefieldContinuous: [],
-      },
-    ];
-
-    const first: PlayerId = Math.random() < 0.5 ? "P1" : "P2";
-
-    const matchLine = [`Match: Best of 3 • Game ${msNext.gamesCompleted + 1} • Score P1 ${msNext.wins.P1}-${msNext.wins.P2} P2`];
-
-    const nextGame: GameState = {
-      step: "MULLIGAN",
-      turnNumber: 1,
-      turnPlayer: first,
-      startingPlayer: first,
-      priorityPlayer: first,
-      passesInRow: 0,
-      state: "OPEN",
-      victoryScore: duelVictoryScore,
-      log: [
-        ...matchLine,
-        `Previous game winner: ${winner ?? "Unknown"}.`,
-        `Next game setup complete. First player: ${first}.`,
-        `P1 Legend: ${p1Built.legend.name} | Champion: ${p1Built.champion.name}`,
-        `P2 Legend: ${p2Built.legend.name} | Champion: ${p2Built.champion.name}`,
-        `Battlefield 1 (P1 choice): ${bf1.name}`,
-        `Battlefield 2 (P2 choice): ${bf2.name}`,
-      ],
-      actionHistory: [],
-      players,
+diff --git a/RBv22.tsx b/RBv22.tsx
+index d50f63f354e66c08718a7814d9d3d9d74046788c..d1adcb29401044b888ec9cd189bfdf1ad88411de 100644
+--- a/RBv22.tsx
++++ b/RBv22.tsx
+@@ -2697,93 +2697,103 @@ players,
+ const pickBattlefieldForPlayer = (pool: CardData[], usedIds: string[], desiredId: string | null): CardData => {
+   const remaining = pool.filter((b) => !usedIds.includes(b.id));
+   const candidates = remaining.length > 0 ? remaining : pool;
+   if (candidates.length === 0) throw new Error("Deck has no battlefields.");
+   if (desiredId) {
+     const found = candidates.find((b) => b.id === desiredId);
+     if (found) return found;
+   }
+   return candidates[Math.floor(Math.random() * candidates.length)];
+ };
+ 
+ const getGameWinner = (gs: GameState): PlayerId | null => {
+   const p1Win = gs.players.P1.points >= gs.victoryScore;
+   const p2Win = gs.players.P2.points >= gs.victoryScore;
+   if (p1Win && !p2Win) return "P1";
+   if (p2Win && !p1Win) return "P2";
+   // In unusual edge cases, fall back to no winner.
+   return null;
+ };
+ 
+ const deckBattlefieldsFor = (pid: PlayerId): CardData[] => {
+   const ids = builderDecks[pid]?.battlefields || [];
+   return ids.map((id) => getCardById(allCards, id)).filter((x): x is CardData => Boolean(x));
+ };
+ 
++const createBattlefieldState = (index: number, card: CardData, owner: PlayerId): BattlefieldState => ({
++  index,
++  card,
++  owner,
++  controller: null,
++  contestedBy: null,
++  facedown: null,
++  units: { P1: [], P2: [] },
++  gear: { P1: [], P2: [] },
++});
++
+ const startDeckBuilderDuel = (overrideFormat?: MatchFormat) => {
+   if (allCards.length === 0) return;
+ 
+   // New game => clear undo history
+   undoRef.current = [];
+   clearTransientUI();
+ 
+   const turn = 1;
+ 
+   try {
+     const p1Built = buildPlayerFromDeckSpec(allCards, "P1", builderDecks.P1, turn);
+     const p2Built = buildPlayerFromDeckSpec(allCards, "P2", builderDecks.P2, turn);
+ 
+       const fmt: MatchFormat = overrideFormat ?? matchFormat;
+ 
+     // Match init (only BO3 is a multi-game match; BO1 is a single game).
+-    let ms: MatchState | null =
+-      fmt === "BO3"
+-        ? {
+-            format: "BO3",
+-            gamesCompleted: 0,
+-            wins: { P1: 0, P2: 0 },
+-            usedBattlefieldIds: { P1: [], P2: [] },
+-            lastGameWinner: null,
+-          }
+-        : null;
++    const baseMatchState: MatchState = {
++      format: "BO3",
++      gamesCompleted: 0,
++      wins: { P1: 0, P2: 0 },
++      usedBattlefieldIds: { P1: [], P2: [] },
++      lastGameWinner: null,
++    };
++    let ms: MatchState | null = fmt === "BO3" ? baseMatchState : null;
+ 
+     // Battlefield selection
+     const bf1 =
+       fmt === "BO1"
+         ? p1Built.battlefields[Math.floor(Math.random() * p1Built.battlefields.length)]
+-        : pickBattlefieldForPlayer(p1Built.battlefields, ms!.usedBattlefieldIds.P1, matchNextBattlefieldPick.P1);
++        : pickBattlefieldForPlayer(p1Built.battlefields, (ms ?? baseMatchState).usedBattlefieldIds.P1, matchNextBattlefieldPick.P1);
+     const bf2 =
+       fmt === "BO1"
+         ? p2Built.battlefields[Math.floor(Math.random() * p2Built.battlefields.length)]
+-        : pickBattlefieldForPlayer(p2Built.battlefields, ms!.usedBattlefieldIds.P2, matchNextBattlefieldPick.P2);
++        : pickBattlefieldForPlayer(p2Built.battlefields, (ms ?? baseMatchState).usedBattlefieldIds.P2, matchNextBattlefieldPick.P2);
+ 
+     if (fmt === "BO3") {
++      const resolvedMs = ms ?? baseMatchState;
+       ms = {
+-        ...ms!,
++        ...resolvedMs,
+         usedBattlefieldIds: {
+-          P1: [...ms!.usedBattlefieldIds.P1, bf1.id],
+-          P2: [...ms!.usedBattlefieldIds.P2, bf2.id],
++          P1: [...resolvedMs.usedBattlefieldIds.P1, bf1.id],
++          P2: [...resolvedMs.usedBattlefieldIds.P2, bf2.id],
+         },
+       };
+       setMatchState(ms);
+       setMatchNextBattlefieldPick({ P1: null, P2: null });
+     } else {
+       setMatchState(null);
+       setMatchNextBattlefieldPick({ P1: null, P2: null });
+     }
+ 
+     const players: Record<PlayerId, PlayerState> = {
+       P1: {
+         id: "P1",
+         legend: p1Built.legend,
+         legendReady: true,
+         championZone: p1Built.champion,
+         base: { units: [], gear: [] },
+         mainDeck: p1Built.mainDeck,
+         hand: [],
+         trash: [],
+         banishment: [],
+         runeDeck: p1Built.runeDeck,
+         runesInPlay: [],
+         runePool: emptyRunePool(),
+         points: 0,
+         domains: p1Built.domains,
+@@ -2792,78 +2802,51 @@ const startDeckBuilderDuel = (overrideFormat?: MatchFormat) => {
+         mulliganSelectedIds: [],
+         mulliganDone: false,
+       },
+       P2: {
+         id: "P2",
+         legend: p2Built.legend,
+         legendReady: true,
+         championZone: p2Built.champion,
+         base: { units: [], gear: [] },
+         mainDeck: p2Built.mainDeck,
+         hand: [],
+         trash: [],
+         banishment: [],
+         runeDeck: p2Built.runeDeck,
+         runesInPlay: [],
+         runePool: emptyRunePool(),
+         points: 0,
+         domains: p2Built.domains,
+         mainDeckCardsPlayedThisTurn: 0,
+         scoredBattlefieldsThisTurn: [],
+         mulliganSelectedIds: [],
+         mulliganDone: false,
+       },
+     };
+ 
+-    const battlefields: BattlefieldState[] = [
+-      {
+-        index: 0,
+-        card: bf1,
+-        owner: "P1",
+-        controller: null,
+-        units: [],
+-        gear: [],
+-        facedown: null,
+-        facedownOwner: null,
+-        scoreLockedUntilTurn: null,
+-        lastConqueredTurn: null,
+-        battlefieldContinuous: [],
+-      },
+-      {
+-        index: 1,
+-        card: bf2,
+-        owner: "P2",
+-        controller: null,
+-        units: [],
+-        gear: [],
+-        facedown: null,
+-        facedownOwner: null,
+-        scoreLockedUntilTurn: null,
+-        lastConqueredTurn: null,
+-        battlefieldContinuous: [],
+-      },
+-    ];
++    const battlefields: BattlefieldState[] = [createBattlefieldState(0, bf1, "P1"), createBattlefieldState(1, bf2, "P2")];
+ 
+     const first: PlayerId = Math.random() < 0.5 ? "P1" : "P2";
+ 
+     const matchLine =
+       fmt === "BO3" && ms
+         ? [`Match: Best of 3 • Game ${ms.gamesCompleted + 1} • Score P1 ${ms.wins.P1}-${ms.wins.P2} P2`]
+         : [];
+ 
+     const g: GameState = {
+       step: "MULLIGAN",
+       turnNumber: 1,
+       turnPlayer: first,
+       startingPlayer: first,
+       priorityPlayer: first,
+       passesInRow: 0,
+       state: "OPEN",
+       victoryScore: duelVictoryScore,
+       log: [
+         ...matchLine,
+         `Deck Builder Duel setup complete. First player: ${first}.`,
+         `P1 Legend: ${p1Built.legend.name} | Champion: ${p1Built.champion.name}`,
+         `P2 Legend: ${p2Built.legend.name} | Champion: ${p2Built.champion.name}`,
+         `Battlefield 1 (P1 choice): ${bf1.name}`,
+         `Battlefield 2 (P2 choice): ${bf2.name}`,
+       ],
+@@ -2965,78 +2948,51 @@ const startNextBo3Game = () => {
+         mulliganSelectedIds: [],
+         mulliganDone: false,
+       },
+       P2: {
+         id: "P2",
+         legend: p2Built.legend,
+         legendReady: true,
+         championZone: p2Built.champion,
+         base: { units: [], gear: [] },
+         mainDeck: p2Built.mainDeck,
+         hand: [],
+         trash: [],
+         banishment: [],
+         runeDeck: p2Built.runeDeck,
+         runesInPlay: [],
+         runePool: emptyRunePool(),
+         points: 0,
+         domains: p2Built.domains,
+         mainDeckCardsPlayedThisTurn: 0,
+         scoredBattlefieldsThisTurn: [],
+         mulliganSelectedIds: [],
+         mulliganDone: false,
+       },
+     };
+ 
+-    const battlefields: BattlefieldState[] = [
+-      {
+-        index: 0,
+-        card: bf1,
+-        owner: "P1",
+-        controller: null,
+-        units: [],
+-        gear: [],
+-        facedown: null,
+-        facedownOwner: null,
+-        scoreLockedUntilTurn: null,
+-        lastConqueredTurn: null,
+-        battlefieldContinuous: [],
+-      },
+-      {
+-        index: 1,
+-        card: bf2,
+-        owner: "P2",
+-        controller: null,
+-        units: [],
+-        gear: [],
+-        facedown: null,
+-        facedownOwner: null,
+-        scoreLockedUntilTurn: null,
+-        lastConqueredTurn: null,
+-        battlefieldContinuous: [],
+-      },
+-    ];
++    const battlefields: BattlefieldState[] = [createBattlefieldState(0, bf1, "P1"), createBattlefieldState(1, bf2, "P2")];
+ 
+     const first: PlayerId = Math.random() < 0.5 ? "P1" : "P2";
+ 
+     const matchLine = [`Match: Best of 3 • Game ${msNext.gamesCompleted + 1} • Score P1 ${msNext.wins.P1}-${msNext.wins.P2} P2`];
+ 
+     const nextGame: GameState = {
+       step: "MULLIGAN",
+       turnNumber: 1,
+       turnPlayer: first,
+       startingPlayer: first,
+       priorityPlayer: first,
+       passesInRow: 0,
+       state: "OPEN",
+       victoryScore: duelVictoryScore,
+       log: [
+         ...matchLine,
+         `Previous game winner: ${winner ?? "Unknown"}.`,
+         `Next game setup complete. First player: ${first}.`,
+         `P1 Legend: ${p1Built.legend.name} | Champion: ${p1Built.champion.name}`,
+         `P2 Legend: ${p2Built.legend.name} | Champion: ${p2Built.champion.name}`,
+         `Battlefield 1 (P1 choice): ${bf1.name}`,
+         `Battlefield 2 (P2 choice): ${bf2.name}`,
+       ],
+       actionHistory: [],
+       players,
       battlefields,
     };
 
