@@ -2735,33 +2735,32 @@ const startDeckBuilderDuel = (overrideFormat?: MatchFormat) => {
       const fmt: MatchFormat = overrideFormat ?? matchFormat;
 
     // Match init (only BO3 is a multi-game match; BO1 is a single game).
-    let ms: MatchState | null =
-      fmt === "BO3"
-        ? {
-            format: "BO3",
-            gamesCompleted: 0,
-            wins: { P1: 0, P2: 0 },
-            usedBattlefieldIds: { P1: [], P2: [] },
-            lastGameWinner: null,
-          }
-        : null;
+    const baseMatchState: MatchState = {
+      format: "BO3",
+      gamesCompleted: 0,
+      wins: { P1: 0, P2: 0 },
+      usedBattlefieldIds: { P1: [], P2: [] },
+      lastGameWinner: null,
+    };
+    let ms: MatchState | null = fmt === "BO3" ? baseMatchState : null;
 
     // Battlefield selection
     const bf1 =
       fmt === "BO1"
         ? p1Built.battlefields[Math.floor(Math.random() * p1Built.battlefields.length)]
-        : pickBattlefieldForPlayer(p1Built.battlefields, ms!.usedBattlefieldIds.P1, matchNextBattlefieldPick.P1);
+        : pickBattlefieldForPlayer(p1Built.battlefields, (ms ?? baseMatchState).usedBattlefieldIds.P1, matchNextBattlefieldPick.P1);
     const bf2 =
       fmt === "BO1"
         ? p2Built.battlefields[Math.floor(Math.random() * p2Built.battlefields.length)]
-        : pickBattlefieldForPlayer(p2Built.battlefields, ms!.usedBattlefieldIds.P2, matchNextBattlefieldPick.P2);
+        : pickBattlefieldForPlayer(p2Built.battlefields, (ms ?? baseMatchState).usedBattlefieldIds.P2, matchNextBattlefieldPick.P2);
 
     if (fmt === "BO3") {
+      const resolvedMs = ms ?? baseMatchState;
       ms = {
-        ...ms!,
+        ...resolvedMs,
         usedBattlefieldIds: {
-          P1: [...ms!.usedBattlefieldIds.P1, bf1.id],
-          P2: [...ms!.usedBattlefieldIds.P2, bf2.id],
+          P1: [...resolvedMs.usedBattlefieldIds.P1, bf1.id],
+          P2: [...resolvedMs.usedBattlefieldIds.P2, bf2.id],
         },
       };
       setMatchState(ms);
