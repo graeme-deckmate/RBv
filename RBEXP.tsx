@@ -469,6 +469,117 @@ const clampDomain = (d: string): Domain => {
 
 const DEFAULT_DOMAINS: Domain[] = ["Body", "Calm", "Chaos", "Fury", "Mind", "Order"];
 
+// Champion/subtype to domain mapping for cards without legacy data
+// Derived from riftbound_card_data.json Legend cards and champion associations
+const CHAMPION_DOMAIN_MAP: Record<string, string> = {
+  // Legends (primary champions)
+  "ahri": "Calm, Mind",
+  "annie": "Fury, Chaos",
+  "azir": "Mind, Order",
+  "darius": "Fury, Order",
+  "draven": "Fury, Chaos",
+  "ezreal": "Mind, Chaos",
+  "fiora": "Body, Order",
+  "garen": "Body, Order",
+  "irelia": "Calm, Body",
+  "jax": "Body, Fury",
+  "jinx": "Fury, Chaos",
+  "kaisa": "Fury, Mind",
+  "leesin": "Calm, Body",
+  "leona": "Calm, Order",
+  "lucian": "Order, Fury",
+  "lux": "Mind, Order",
+  "masteryi": "Calm, Body",
+  "missfortune": "Body, Chaos",
+  "ornn": "Body, Fury",
+  "reksai": "Fury, Chaos",
+  "renataglasc": "Mind, Chaos",
+  "rumble": "Fury, Mind",
+  "sett": "Body, Order",
+  "sivir": "Fury, Body",
+  "teemo": "Mind, Chaos",
+  "viktor": "Mind, Order",
+  "volibear": "Fury, Body",
+  "yasuo": "Calm, Chaos",
+  // Regions/factions
+  "bandlecity": "Mind, Chaos",
+  "bilgewater": "Fury, Chaos",
+  "demacia": "Order, Body",
+  "freljord": "Fury, Body",
+  "ionia": "Calm, Mind",
+  "ixtal": "Body, Calm",
+  "mounttargon": "Calm, Order",
+  "noxus": "Fury, Order",
+  "piltover": "Mind, Order",
+  "shadowisles": "Chaos, Mind",
+  "shurima": "Mind, Order",
+  "thevoid": "Fury, Chaos",
+  "zaun": "Mind, Chaos",
+  // Unit types/tribes
+  "bird": "Calm",
+  "cat": "Body",
+  "dog": "Body",
+  "dragon": "Fury",
+  "elite": "Order",
+  "fae": "Calm",
+  "mech": "Mind, Fury",
+  "pirate": "Fury, Chaos",
+  "poro": "Calm",
+  "recruit": "Colorless",
+  "spirit": "Calm",
+  "trifarian": "Fury",
+  "yordle": "Mind",
+  // Additional champions from expert data
+  "akshan": "Body, Order",
+  "aphelios": "Calm, Mind",
+  "bard": "Calm, Mind",
+  "blitzcrank": "Mind",
+  "caitlyn": "Mind, Order",
+  "dr.mundo": "Body, Chaos",
+  "ekko": "Mind, Chaos",
+  "heimerdinger": "Mind",
+  "janna": "Calm",
+  "jayce": "Mind, Order",
+  "karthus": "Chaos, Mind",
+  "kayn": "Chaos, Body",
+  "kogmaw": "Fury, Chaos",
+  "malzahar": "Mind, Chaos",
+  "nocturne": "Chaos",
+  "qiyana": "Body, Calm",
+  "rell": "Order, Body",
+  "shen": "Order, Calm",
+  "sona": "Calm, Mind",
+  "soraka": "Calm, Order",
+  "taric": "Calm, Order",
+  "tryndamere": "Fury, Body",
+  "twistedfate": "Chaos, Mind",
+  "udyr": "Body, Fury",
+  "vayne": "Order, Fury",
+  "vi": "Fury, Body",
+  "warwick": "Body, Chaos",
+  "yone": "Calm, Chaos",
+  // Equipment subtype (gear cards)
+  "equipment": "Colorless",
+};
+
+// Infer domain from type_line subtype (e.g., "legend - annie" -> "Fury, Chaos")
+const inferDomainFromTypeLine = (typeLine: string): string | null => {
+  if (!typeLine || !typeLine.includes("-")) return null;
+  const [, subtypesRaw] = typeLine.split("-", 2);
+  if (!subtypesRaw) return null;
+  
+  // Split by comma/slash for multiple subtypes and find first match
+  const subtypes = subtypesRaw.split(/[,/]/).map(s => 
+    s.trim().toLowerCase().replace(/\s+/g, "").replace(/'/g, "")
+  ).filter(s => s && s !== "nan");
+  
+  for (const subtype of subtypes) {
+    const domain = CHAMPION_DOMAIN_MAP[subtype];
+    if (domain) return domain;
+  }
+  return null;
+};
+
 const sanitizeJsonText = (text: string): string => text.replace(/\bNaN\b/g, "null");
 
 const normalizeNameKey = (name: string): string =>
@@ -591,8 +702,14 @@ const normalizeExpertCards = (cards: ExpertCardData[], legacyCards: CardData[] =
     const subtypeTags = extractSubtypeTags(typeLine);
     const mergedTags = Array.from(new Set([...(legacy?.tags || []), ...subtypeTags]));
 
+    // Domain inference priority:
+    // 1. Legacy card data (if matched by ID or name)
+    // 2. Type line subtype mapping (e.g., "legend - annie" -> "Fury, Chaos")
+    // 3. Rune card name inference (e.g., "Fury Rune" -> "Fury")
+    // 4. Fallback to "Colorless"
     const inferredDomain =
         legacy?.domain ||
+        inferDomainFromTypeLine(typeLine) ||
         (typeMap[primaryType] === "Rune" ? inferDomainFromName(card.name) : null) ||
         "Colorless";
 
@@ -790,51 +907,6 @@ const refreshConditionalKeywords = (game: GameState) => {
       }
 
       if (isMighty(u, game) && /while i'm\s*\[mighty\]/i.test(rawText)) {
-        const clause = rawText.split(/while i'm\s*\[mighty\]/i)[1] || "";
-        conditional.push(...extractBracketKeywords(clause));
-      }
-
-      if (discardedThisTurn && /if you've discarded a card this turn/i.test(rawText)) {
-        const clause = rawText.split(/if you've discarded a card this turn/i)[1] || "";
-        conditional.push(...extractBracketKeywords(clause));
-      }
-
-      u.conditionalKeywords = conditional;
-    }
-  }
-};
-
-const getUnitsInPlay = (game: GameState, player: PlayerId): CardInstance[] => [
-  ...game.players[player].base.units,
-  ...game.battlefields.flatMap((b) => b.units[player]),
-];
-
-const extractBracketKeywords = (text: string): string[] => {
-  const out: string[] = [];
-  const regex = /\[([^\]]+)\]/g;
-  let m: RegExpExecArray | null;
-  while ((m = regex.exec(text))) {
-    const kw = (m[1] || "").trim();
-    if (kw) out.push(kw);
-  }
-  return out;
-};
-
-const refreshConditionalKeywords = (game: GameState) => {
-  for (const pid of ["P1", "P2"] as PlayerId[]) {
-    const discardedThisTurn = game.players[pid].discardedThisTurn > 0;
-    const units = getUnitsInPlay(game, pid);
-    for (const u of units) {
-      const rawText = `${u.ability?.effect_text || ""} ${u.ability?.raw_text || ""}`;
-      const lower = rawText.toLowerCase();
-      const conditional: string[] = [];
-
-      if (u.buffs > 0 && /while i'm buffed/i.test(rawText)) {
-        const clause = rawText.split(/while i'm buffed/i)[1] || "";
-        conditional.push(...extractBracketKeywords(clause));
-      }
-
-      if (isMighty(u) && /while i'm\s*\[mighty\]/i.test(rawText)) {
         const clause = rawText.split(/while i'm\s*\[mighty\]/i)[1] || "";
         conditional.push(...extractBracketKeywords(clause));
       }
@@ -1378,13 +1450,22 @@ const checkMoveFromLocationTriggers = (
     const trig = (bf.card.ability?.trigger || "").toLowerCase();
     if (trig.includes("when a unit moves from here") && bf.card.ability?.effect_text) {
       for (const u of movedUnits) {
-        const t = buildTriggeredAbilityItem(game, controller, bf.card.name, bf.card.ability.effect_text, from.index, from.index, u.instanceId);
-        if (t) {
-          t.targets = [{ kind: "UNIT", owner: u.owner, instanceId: u.instanceId, battlefieldIndex: from.index, zone: "BF" }];
-          t.needsTargets = true;
-          t.targetRequirement = { kind: "UNIT_ANYWHERE", count: 1 };
-          game.chain.push(t);
-        }
+        const effectText = bf.card.ability.effect_text.trim();
+        if (!effectText) continue;
+        const req = inferTargetRequirement(effectText, { here: true });
+        game.chain.push({
+          id: makeId("chain"),
+          controller,
+          kind: "TRIGGERED_ABILITY",
+          label: `${bf.card.name} — Trigger`,
+          effectText,
+          contextBattlefieldIndex: from.index,
+          restrictTargetsToBattlefieldIndex: from.index,
+          targets: [{ kind: "UNIT", owner: u.owner, instanceId: u.instanceId, battlefieldIndex: from.index, zone: "BF" }],
+          needsTargets: true,
+          targetRequirement: { kind: "UNIT_ANYWHERE", count: 1 },
+          sourceInstanceId: u.instanceId,
+        });
       }
     }
   }
@@ -1621,17 +1702,25 @@ const maybeOpenNextWindow = (game: GameState) => {
         const trig = (source.ability?.trigger || "").toLowerCase();
         if (!trig.includes("when a friendly unit attacks or defends alone")) continue;
         if (source.ability?.effect_text) {
-          const t = buildTriggeredAbilityItem(game, pid, source.name, source.ability.effect_text, idx, null, source.instanceId);
-          if (t) {
-            t.targets = [{ kind: "UNIT", owner: pid, instanceId: soloUnit.instanceId, battlefieldIndex: idx, zone: "BF" }];
-            t.needsTargets = true;
-            t.targetRequirement = { kind: "UNIT_ANYWHERE", count: 1 };
-            game.chain.push(t);
-            game.state = "CLOSED";
-            game.priorityPlayer = pid;
-            game.passesInRow = 0;
-            game.log.unshift(`${source.name} triggered (${mode} alone).`);
-          }
+          const effectText = source.ability.effect_text.trim().replace(/^[—-]\s*/, "").trim();
+          if (!effectText) continue;
+          const req = inferTargetRequirement(effectText);
+          game.chain.push({
+            id: makeId("chain"),
+            controller: pid,
+            kind: "TRIGGERED_ABILITY",
+            label: `${source.name} — Trigger`,
+            effectText,
+            contextBattlefieldIndex: idx,
+            targets: [{ kind: "UNIT", owner: pid, instanceId: soloUnit.instanceId, battlefieldIndex: idx, zone: "BF" }],
+            needsTargets: true,
+            targetRequirement: { kind: "UNIT_ANYWHERE", count: 1 },
+            sourceInstanceId: source.instanceId,
+          });
+          game.state = "CLOSED";
+          game.priorityPlayer = pid;
+          game.passesInRow = 0;
+          game.log.unshift(`${source.name} triggered (${mode} alone).`);
         }
       }
     };
@@ -2641,7 +2730,7 @@ const resolveEffectText = (
     game.log.unshift(`${controller} revealed top ${n}: ${names}.`);
 
     if (!isRunes) {
-      for (const card of revealed) {
+      for (const card of revealed as CardInstance[]) {
         const trig = (card.ability?.trigger || "").toLowerCase();
         const eff = card.ability?.effect_text;
         if (trig.includes("when you look at cards from the top of your deck and see me") && eff) {
@@ -3006,7 +3095,7 @@ const resolveEffectText = (
 
     forEachSelectedUnit((u, t, loc) => {
       if (t.owner !== controller) return;
-      const dest = wantsHere && hereBf != null ? { kind: "BF", index: hereBf } : wantsBase ? { kind: "BASE" } : null;
+      const dest = wantsHere && hereBf != null ? { kind: "BF" as const, index: hereBf } : wantsBase ? { kind: "BASE" as const } : null;
       if (!dest) return;
       const from = loc.zone === "BASE" ? ({ kind: "BASE" } as const) : ({ kind: "BF", index: loc.battlefieldIndex! } as const);
       const removed = removeUnitFromWherever(game, t.owner, u.instanceId);
@@ -4358,7 +4447,7 @@ export default function RiftboundGame() {
   const [pendingAccelerate, setPendingAccelerate] = useState<boolean>(false);
   const [pendingAccelerateDomain, setPendingAccelerateDomain] = useState<Domain>("Fury");
   const [pendingTargets, setPendingTargets] = useState<Target[]>([{ kind: "NONE" }]);
-  const [pendingChainChoice, setPendingChainChoice] = useState<null | { chainItemId: string }>(null);
+  const [pendingChainChoice, setPendingChainChoice] = useState<null | { chainItemId: string; targets?: Target[] }>(null);
   const [hideChoice, setHideChoice] = useState<{ cardId: string | null; battlefieldIndex: number | null }>(() => ({ cardId: null, battlefieldIndex: null }));
 
   const [moveSelection, setMoveSelection] = useState<{
@@ -9687,6 +9776,7 @@ export default function RiftboundGame() {
       tempMightBonus: 0,
       stunned: false,
       stunnedUntilTurn: 0,
+      moveCountThisTurn: 0,
       createdTurn: 0,
     });
 
@@ -10158,7 +10248,7 @@ export default function RiftboundGame() {
                 ) : null}
               </div>
 
-              <button className="rb-bigButton" style={{ maxWidth: 280 }} disabled={!canStart} onClick={startDeckBuilderDuel}>
+              <button className="rb-bigButton" style={{ maxWidth: 280 }} disabled={!canStart} onClick={() => startDeckBuilderDuel()}>
                 Start Duel from Decks
               </button>
             </div>
@@ -10877,34 +10967,6 @@ export default function RiftboundGame() {
           /^When you kill$/i.test(trigger) ||
           /^When I conquer$/i.test(trigger) ||
           /^When I hold$/i.test(trigger) ||
-          /^At the end of your turn$/i.test(trigger) ||
-          /^At the start of your Beginning Phase$/i.test(trigger) ||
-          /^At start of your Beginning Phase$/i.test(trigger);
-      if (!supportedTrigger) flags.push(`TRIGGER_UNSUPPORTED: ${trigger}`);
-      const supportedTrigger =
-          /^When you play (me|this)$/i.test(trigger) ||
-          /^When this is played$/i.test(trigger) ||
-          /^When I'm played$/i.test(trigger) ||
-          /^When I attack$/i.test(trigger) ||
-          /^When I defend$/i.test(trigger) ||
-          /^When I attack or defend$/i.test(trigger) ||
-          /^When I defend or I'm played from$/i.test(trigger) ||
-          /^When you play a spell$/i.test(trigger) ||
-          /^When you play a spell that costs 5 energy or more$/i.test(trigger) ||
-          /^When you play a gear$/i.test(trigger) ||
-          /^When you play a unit$/i.test(trigger) ||
-          /^When you play another unit$/i.test(trigger) ||
-          /^When you play your second card in a turn$/i.test(trigger) ||
-          /^When you play a card on an opponent's turn$/i.test(trigger) ||
-          /^When you play me to a battlefield$/i.test(trigger) ||
-          /^When you discard me$/i.test(trigger) ||
-          /^When you discard a card$/i.test(trigger) ||
-          /^When you discard one or more cards$/i.test(trigger) ||
-          /^When you kill$/i.test(trigger) ||
-          /^When I conquer$/i.test(trigger) ||
-          /^When I hold$/i.test(trigger) ||
-          /^When you hold here$/i.test(trigger) ||
-          /^When you conquer here$/i.test(trigger) ||
           /^At the end of your turn$/i.test(trigger) ||
           /^At the start of your Beginning Phase$/i.test(trigger) ||
           /^At start of your Beginning Phase$/i.test(trigger);
