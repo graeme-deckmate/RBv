@@ -179,9 +179,44 @@ def load_images(image_csv_path: str) -> Dict[str, str]:
                 images[name] = image_url
     return images
 
+def convert_legacy_to_expert(legacy_card: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert a legacy card format to expert format."""
+    card_type = legacy_card.get('type', 'unit').lower()
+    tags = legacy_card.get('tags', [])
+    
+    # Build type_line
+    if tags:
+        type_line = f"{card_type} - {', '.join(t.lower() for t in tags)}"
+    else:
+        type_line = card_type
+    
+    # Get ability info
+    ability = legacy_card.get('ability', {})
+    raw_text = ability.get('raw_text', '') or ability.get('effect_text', '')
+    keywords = ability.get('keywords', [])
+    
+    return {
+        'id': legacy_card.get('id', ''),
+        'name': legacy_card.get('name', ''),
+        'rarity': legacy_card.get('rarity', '').lower(),
+        'domain': legacy_card.get('domain', 'Colorless'),
+        'type_line': type_line,
+        'stats': {
+            'energy': legacy_card.get('cost'),
+            'might': legacy_card.get('stats', {}).get('might'),
+            'power': legacy_card.get('stats', {}).get('power')
+        },
+        'rules_text': {
+            'raw': raw_text,
+            'keywords': keywords
+        },
+        'image_url': legacy_card.get('image_url', '')
+    }
+
 def main():
     csv_path = '/home/ubuntu/RBv/RiftboundCardData  - All Current Card Data.csv'
     images_csv_path = '/home/ubuntu/RBv/RiftboundCardData_Images.csv'
+    legacy_path = '/home/ubuntu/RBv/riftbound_card_data.json'
     output_path = '/home/ubuntu/RBv/riftbound_data_expert.json'
     
     # Load images
@@ -189,9 +224,20 @@ def main():
     images = load_images(images_csv_path)
     print(f"Loaded {len(images)} image URLs")
     
-    # Parse card data
+    # Load legacy cards for fallback
+    print("Loading legacy card data...")
+    legacy_cards = []
+    try:
+        with open(legacy_path, 'r', encoding='utf-8') as f:
+            legacy_cards = json.load(f)
+        print(f"Loaded {len(legacy_cards)} legacy cards")
+    except Exception as e:
+        print(f"Warning: Could not load legacy cards: {e}")
+    
+    # Parse card data from CSV
     print("Parsing card data from CSV...")
     cards = []
+    card_names_in_csv = set()
     
     with open(csv_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -202,8 +248,25 @@ def main():
                 if card['name'] in images:
                     card['image_url'] = images[card['name']]
                 cards.append(card)
+                card_names_in_csv.add(card['name'].lower())
     
-    print(f"Parsed {len(cards)} cards")
+    print(f"Parsed {len(cards)} cards from CSV")
+    
+    # Add legacy cards that are missing from CSV
+    missing_from_csv = []
+    for legacy_card in legacy_cards:
+        legacy_name = legacy_card.get('name', '').lower()
+        if legacy_name and legacy_name not in card_names_in_csv:
+            converted = convert_legacy_to_expert(legacy_card)
+            cards.append(converted)
+            missing_from_csv.append(legacy_card.get('name', 'Unknown'))
+    
+    if missing_from_csv:
+        print(f"Added {len(missing_from_csv)} cards from legacy data:")
+        for name in missing_from_csv:
+            print(f"  - {name}")
+    
+    print(f"Total cards: {len(cards)}")
     
     # Write output
     print(f"Writing to {output_path}...")

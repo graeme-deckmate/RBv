@@ -5720,12 +5720,14 @@ export default function RiftboundGame() {
     const pickLine =
         lines.find((l) => /\bexhaust\b\s*:/i.test(l)) ||
         lines.find((l) => /^\s*\[e\]\s*:/i.test(l)) ||
+        lines.find((l) => /^\s*\[t\]\s*:/i.test(l)) ||  // [T]: is tap/exhaust notation
         lines.find((l) => /\bexhaust\b/i.test(l) && l.includes(":")) ||
+        lines.find((l) => /,\s*\[t\]\s*:/i.test(l)) ||  // cost, [T]: pattern
         null;
 
     if (!pickLine) return null;
 
-    const ex = /\bexhaust\b\s*:/i.exec(pickLine) || /^\s*\[e\]\s*:/i.exec(pickLine);
+    const ex = /\bexhaust\b\s*:/i.exec(pickLine) || /^\s*\[e\]\s*:/i.exec(pickLine) || /^\s*\[t\]\s*:/i.exec(pickLine) || /,\s*\[t\]\s*:/i.exec(pickLine);
     if (!ex) return null;
 
     // Everything before "exhaust:" is treated as an activation cost (e.g. "1 energy,").
@@ -5765,14 +5767,18 @@ export default function RiftboundGame() {
       if (Number.isFinite(n) && n > 0) cost.powerAny += n;
     }
 
-    // Effect is everything after "exhaust:" (cleaned up a bit)
+    // Effect is everything after "exhaust:" or "[T]:" (cleaned up a bit)
     let eff = pickLine;
 
-    // Remove any leading "[E]:" shorthand for Exhaust.
+    // Remove any leading "[E]:" or "[T]:" shorthand for Exhaust/Tap.
     eff = eff.replace(/^\s*\[e\]\s*:/i, "").trim();
+    eff = eff.replace(/^\s*\[t\]\s*:/i, "").trim();
 
     // Remove leading "exhaust:" (with optional costs before it).
     eff = eff.replace(/^[\s\S]*?\bexhaust\b\s*:/i, "").trim();
+    
+    // Remove cost + [T]: pattern (e.g., "[2], [T]:")
+    eff = eff.replace(/^[\s\S]*?,\s*\[t\]\s*:/i, "").trim();
 
     // Remove leading "Action —" / "Reaction —" and also "[Reaction], [Legion] —" style labels.
     eff = eff.replace(/^\s*(action|reaction)\s*[—-]\s*/i, "").trim();

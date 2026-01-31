@@ -10464,5 +10464,577 @@
     },
     "supertypes": "token",
     "image_url": "https://riftdecks.com/img/cards/riftbound/SFD/sfd-t03_full.png"
+  },
+  {
+    "id": "ogn-035",
+    "name": "Vayne, Hunter",
+    "rarity": "rare",
+    "domain": "Fury",
+    "type_line": "unit - vayne, demacia",
+    "stats": {
+      "energy": 4.0,
+      "might": 2.0,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "[Assault 3]_ (+3 might while I'm an attacker.)_ If an opponent controls a battlefield, I enter ready. When I conquer, you may pay 1 energy to return me to my owner's hand.",
+      "keywords": [
+        "Assault 3"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b38a22e6f4bfaa8589f32754a7466fe5214e81b5-744x1039.png"
+  },
+  {
+    "id": "ogn-040",
+    "name": "Seal of Rage",
+    "rarity": "epic",
+    "domain": "Fury",
+    "type_line": "gear",
+    "stats": {
+      "energy": 0.0,
+      "might": null,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "exhaust: [Reaction] — [Add] 1 fury rune. (Abilities that add resources can't be reacted to.)",
+      "keywords": [
+        "Reaction",
+        "Add"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/fbdd14adb40b0ca46b89f476a356fa21413d812e-744x1039.png"
+  },
+  {
+    "id": "ogn-081",
+    "name": "Seal of Focus",
+    "rarity": "epic",
+    "domain": "Calm",
+    "type_line": "gear",
+    "stats": {
+      "energy": 0.0,
+      "might": null,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "exhaust: [Reaction] — [Add] 1 calm rune. (Abilities that add resources can't be reacted to.)",
+      "keywords": [
+        "Reaction",
+        "Add"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/288c300c4e4cb10ecfe6c3cbb543d0636b306852-744x1039.png"
+  },
+  {
+    "id": "ogn-119",
+    "name": "Ahri, Inquisitive",
+    "rarity": "epic",
+    "domain": "Mind",
+    "type_line": "unit - ahri, ionia",
+    "stats": {
+      "energy": 3.0,
+      "might": 3.0,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "When I attack or defend, give an enemy unit here -2 might this turn, to a minimum of 1 might.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/cfa28e1abcac1db780d11e82985e13ee5978290d-744x1039.png"
+  },
+  {
+    "id": "ogn-120",
+    "name": "Seal of Insight",
+    "rarity": "epic",
+    "domain": "Mind",
+    "type_line": "gear",
+    "stats": {
+      "energy": 0.0,
+      "might": null,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "exhaust: [Reaction] — [Add] 1 mind rune. (Abilities that add resources can't be reacted to.)",
+      "keywords": [
+        "Reaction",
+        "Add"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9ee0dc0221f83d569e0f458374e40f7238f306c2-744x1039.png"
+  },
+  {
+    "id": "ogn-121",
+    "name": "Teemo, Strategist",
+    "rarity": "epic",
+    "domain": "Mind",
+    "type_line": "unit - yordle, teemo, bandle city",
+    "stats": {
+      "energy": 2.0,
+      "might": 2.0,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "[Hidden] (Hide now for 1 rune of any type to react with later for 0 energy.)\nWhen I defend or I'm played from [Hidden], reveal the top 5 cards of your Main Deck. Deal 1 to an enemy unit here for each card with [Hidden], then recycle them.",
+      "keywords": [
+        "Hidden",
+        "Hidden",
+        "Hidden"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b05f31bf744972983f61a9f5801b4ffd68fb9ebf-744x1039.png"
+  },
+  {
+    "id": "ogn-163",
+    "name": "Seal of Strength",
+    "rarity": "epic",
+    "domain": "Body",
+    "type_line": "gear",
+    "stats": {
+      "energy": 0.0,
+      "might": null,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "exhaust: [Reaction] — [Add] 1 body rune. (Abilities that add resources can't be reacted to.)",
+      "keywords": [
+        "Reaction",
+        "Add"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/415644b2798348e3d7198ec900cc40aaa4eb8bdf-744x1039.png"
+  },
+  {
+    "id": "ogn-164",
+    "name": "Sett, Brawler",
+    "rarity": "epic",
+    "domain": "Body",
+    "type_line": "unit - sett, ionia",
+    "stats": {
+      "energy": 5.0,
+      "might": 4.0,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "When I'm played and when I conquer, buff me. (If I don't have a buff, I get a +1 might buff.) Spend my buff: Give me +4 might this turn.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/00ddd4d478f2e49e18a60ed67f4d1452041b7da3-744x1039.png"
+  },
+  {
+    "id": "ogn-204",
+    "name": "Seal of Discord",
+    "rarity": "epic",
+    "domain": "Chaos",
+    "type_line": "gear",
+    "stats": {
+      "energy": 0.0,
+      "might": null,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "exhaust: [Reaction] — [Add] 1 chaos rune. (Abilities that add resources can't be reacted to.)",
+      "keywords": [
+        "Reaction",
+        "Add"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/dd8433e77e46ca77aaf0be35d1774218d9a2f037-744x1039.png"
+  },
+  {
+    "id": "ogn-205",
+    "name": "Yasuo, Windrider",
+    "rarity": "epic",
+    "domain": "Chaos",
+    "type_line": "unit - yasuo, ionia",
+    "stats": {
+      "energy": 5.0,
+      "might": 4.0,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "[Ganking] (I can move from battlefield to battlefield.) The third time I move in a turn, you score 1 point.",
+      "keywords": [
+        "Ganking"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f5ba378ce4dad16d17e001814e091d5f484f2681-744x1039.png"
+  },
+  {
+    "id": "ogn-235",
+    "name": "Karma, Channeler",
+    "rarity": "rare",
+    "domain": "Order",
+    "type_line": "unit - vi, ionia",
+    "stats": {
+      "energy": 6.0,
+      "might": 6.0,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "[Vision] (When you play me, look at the top card of your Main Deck. You may recycle it.)\nWhen you recycle one or more cards, buff a friendly unit. (If it doesn't have a buff, it gets a +1 might buff. Runes aren't cards.)",
+      "keywords": [
+        "Vision"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/aca8664b334f2fa40cc7bae2811dd4e1b4f06388-744x1039.png"
+  },
+  {
+    "id": "ogn-243",
+    "name": "Darius, Executioner",
+    "rarity": "epic",
+    "domain": "Order",
+    "type_line": "unit - trifarian, darius, noxus",
+    "stats": {
+      "energy": 6.0,
+      "might": 6.0,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "[Legion] — When you play me, ready me. (Get the effect if you've played another card this turn) Other friendly units have +1 might here.",
+      "keywords": [
+        "Legion"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/7b71cf13a07074a6eccbe88ae6c74133d989cb68-744x1039.png"
+  },
+  {
+    "id": "ogn-245",
+    "name": "Seal of Unity",
+    "rarity": "epic",
+    "domain": "Order",
+    "type_line": "gear",
+    "stats": {
+      "energy": 0.0,
+      "might": null,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "exhaust: [Reaction] — [Add] 1 order rune. (Abilities that add resources can't be reacted to.)",
+      "keywords": [
+        "Reaction",
+        "Add"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e6fbd41d69bc0d235ea7993d2e9fa74e75e17dff-744x1039.png"
+  },
+  {
+    "id": "ogn-247",
+    "name": "Daughter of the Void",
+    "rarity": "rare",
+    "domain": "Fury, Mind",
+    "type_line": "legend - kai'sa",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "exhaust: [Reaction] — [Add] 1 rune of any type. Use only to play spells. (Abilities that add resources can't be reacted to.)",
+      "keywords": [
+        "Reaction",
+        "Add"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/3ea826277086945a2cdfda4e41b771075aa8b15b-744x1039.png"
+  },
+  {
+    "id": "ogn-249",
+    "name": "Relentless Storm",
+    "rarity": "rare",
+    "domain": "Fury, Body",
+    "type_line": "legend - volibear",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "When you play a [Mighty] unit, you may exhaust me to channel 1 rune exhausted. (A unit is Mighty while it has 5+ might.)",
+      "keywords": [
+        "Mighty"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/8ef9c1827ccbba313d4591275e831854afffa5b1-744x1039.png"
+  },
+  {
+    "id": "ogn-251",
+    "name": "Loose Cannon",
+    "rarity": "rare",
+    "domain": "Fury, Chaos",
+    "type_line": "legend - jinx",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "At start of your Beginning Phase, draw 1 if you have one or fewer cards in your hand.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f57c14381b126e9f5a7b5bc4913151cb24c14fc3-744x1039.png"
+  },
+  {
+    "id": "ogn-253",
+    "name": "Hand of Noxus",
+    "rarity": "rare",
+    "domain": "Fury, Order",
+    "type_line": "legend - darius",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "exhaust: [Reaction], [Legion] — [Add] 1 energy. (Abilities that add resources can't be reacted to. Get the effect if you've played a card this turn.)",
+      "keywords": [
+        "Reaction",
+        "Legion",
+        "Add"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/5b9a904048b7fb936377844ec2d31564b7fedf81-744x1039.png"
+  },
+  {
+    "id": "ogn-255",
+    "name": "Nine-Tailed Fox",
+    "rarity": "rare",
+    "domain": "Calm, Mind",
+    "type_line": "legend - ahri",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "When an enemy unit attacks a battlefield you control, give it -1 might this turn, to a minimum of 1 might.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/56457c7986d3f140b7123a988149cc30a83493a7-744x1039.png"
+  },
+  {
+    "id": "ogn-257",
+    "name": "Blind Monk",
+    "rarity": "rare",
+    "domain": "Calm, Body",
+    "type_line": "legend - lee sin",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "1 energy, exhaust: Buff a friendly unit. (If it doesn't have a buff, it gets a +1 might buff.)",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ffe064e002d3b9a366748eb85102a769b2545835-744x1039.png"
+  },
+  {
+    "id": "ogn-259",
+    "name": "Unforgiven",
+    "rarity": "rare",
+    "domain": "Calm, Chaos",
+    "type_line": "legend - yasuo",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "2 energy, exhaust: Move a friendly unit to or from its base.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/33e3d5596de0f560087d40414d62b8245d1dbb0d-744x1039.png"
+  },
+  {
+    "id": "ogn-261",
+    "name": "Radiant Dawn",
+    "rarity": "rare",
+    "domain": "Calm, Order",
+    "type_line": "legend - leona",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "When you stun one or more enemy units, buff a friendly unit. (If it doesn't have a buff, it gets a +1 might buff.)",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/822b8bc7987a47498550708b18ef166b121fd620-744x1039.png"
+  },
+  {
+    "id": "ogn-263",
+    "name": "Swift Scout",
+    "rarity": "rare",
+    "domain": "Mind, Chaos",
+    "type_line": "legend - teemo",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "You may pay 1 energy to hide a card with [Hidden] instead of 1 rune of any type. 1 energy, exhaust: Put a Teemo unit you own into your hand from your Champion Zone or the board.",
+      "keywords": [
+        "Hidden"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9723181e3392bb61c2aabc804a44f7b0558cedf1-744x1039.png"
+  },
+  {
+    "id": "ogn-265",
+    "name": "Herald of the Arcane",
+    "rarity": "rare",
+    "domain": "Mind, Order",
+    "type_line": "legend - viktor",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "1 energy, exhaust: Play a 1 might Recruit unit token.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/913236dabf1e4f71650bbba46870fff8163e2eff-744x1039.png"
+  },
+  {
+    "id": "ogn-267",
+    "name": "Bounty Hunter",
+    "rarity": "rare",
+    "domain": "Body, Chaos",
+    "type_line": "legend - miss fortune",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "exhaust: Give a unit [Ganking] this turn. (It can move from battlefield to battlefield.)",
+      "keywords": [
+        "Ganking"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e0635cebc3dd8ee5355dbbc090ca27ebeacebad7-744x1039.png"
+  },
+  {
+    "id": "ogn-269",
+    "name": "The Boss",
+    "rarity": "rare",
+    "domain": "Body, Order",
+    "type_line": "legend - sett",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "When a buffed unit you control would die, you may pay 1 rune of any type and exhaust me to spend its buff and recall it exhausted instead. (Send it to base. This isn't a move.)\nWhen you conquer, ready me.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b132becb843b2cf418cb110ead64758f49f51554-744x1039.png"
+  },
+  {
+    "id": "ogs-004",
+    "name": "Yi, Meditative",
+    "rarity": "rare",
+    "domain": "Calm",
+    "type_line": "unit - master yi, ionia",
+    "stats": {
+      "energy": 5.0,
+      "might": 4.0,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "While you have 8+ runes, I have +4 might.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/5508566c8f05f09492148faa803332a731095eb7-744x1039.png"
+  },
+  {
+    "id": "ogs-009",
+    "name": "Yi, Honed",
+    "rarity": "epic",
+    "domain": "Body",
+    "type_line": "unit - master yi, ionia",
+    "stats": {
+      "energy": 7.0,
+      "might": 6.0,
+      "power": 1.0
+    },
+    "rules_text": {
+      "raw": "[Ganking] (I can move from battlefield to battlefield.) I enter ready.",
+      "keywords": [
+        "Ganking"
+      ]
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/0e16976cd6d7ee5a874be9351b428671990fbd25-744x1039.png"
+  },
+  {
+    "id": "ogs-017",
+    "name": "Dark Child - Starter",
+    "rarity": "rare",
+    "domain": "Fury, Chaos",
+    "type_line": "legend - annie",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "At the end of your turn, ready 2 runes.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/89963e1d1cffd69c620fb5d6b037f50d5c334463-744x1039.png"
+  },
+  {
+    "id": "ogs-019",
+    "name": "Wuju Bladesman - Starter",
+    "rarity": "rare",
+    "domain": "Calm, Body",
+    "type_line": "legend - master yi",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "While a friendly unit defends alone, it gets +2 might.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/8231ced23eaf22ca3bf62ec8cb86b83a3e222da6-744x1039.png"
+  },
+  {
+    "id": "ogs-021",
+    "name": "Lady of Luminosity - Starter",
+    "rarity": "rare",
+    "domain": "Mind, Order",
+    "type_line": "legend - lux",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "When you play a spell that costs 5 energy or more, draw 1.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/44885d811b70621b188d9813b2b10b5cff1b81e6-744x1039.png"
+  },
+  {
+    "id": "ogs-023",
+    "name": "Might of Demacia - Starter",
+    "rarity": "rare",
+    "domain": "Body, Order",
+    "type_line": "legend - garen",
+    "stats": {
+      "energy": 0,
+      "might": null,
+      "power": null
+    },
+    "rules_text": {
+      "raw": "When you conquer, if you have 4+ units at that battlefield, draw 2.",
+      "keywords": []
+    },
+    "image_url": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e7185deb46f17770802d06aeddfe3b929afff880-744x1039.png"
   }
 ]
