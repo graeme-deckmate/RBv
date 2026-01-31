@@ -91,6 +91,7 @@ interface ExpertCardData {
   id: string;
   name: string;
   rarity?: string;
+  domain?: string; // Domain directly from CSV (e.g., "Fury", "Calm, Mind")
   type_line?: string;
   stats?: {
     energy?: number;
@@ -105,6 +106,9 @@ interface ExpertCardData {
       effects?: Array<Record<string, unknown>>;
     }>;
   };
+  image_url?: string; // Image URL from CSV
+  supertypes?: string; // e.g., "basic" for runes
+  tags?: string[]; // Additional tags from CSV
 }
 
 interface CardInstance extends CardData {
@@ -703,11 +707,13 @@ const normalizeExpertCards = (cards: ExpertCardData[], legacyCards: CardData[] =
     const mergedTags = Array.from(new Set([...(legacy?.tags || []), ...subtypeTags]));
 
     // Domain inference priority:
-    // 1. Legacy card data (if matched by ID or name)
-    // 2. Type line subtype mapping (e.g., "legend - annie" -> "Fury, Chaos")
-    // 3. Rune card name inference (e.g., "Fury Rune" -> "Fury")
-    // 4. Fallback to "Colorless"
+    // 1. Domain directly from expert data (CSV source)
+    // 2. Legacy card data (if matched by ID or name)
+    // 3. Type line subtype mapping (e.g., "legend - annie" -> "Fury, Chaos")
+    // 4. Rune card name inference (e.g., "Fury Rune" -> "Fury")
+    // 5. Fallback to "Colorless"
     const inferredDomain =
+        card.domain ||
         legacy?.domain ||
         inferDomainFromTypeLine(typeLine) ||
         (typeMap[primaryType] === "Rune" ? inferDomainFromName(card.name) : null) ||
@@ -721,7 +727,7 @@ const normalizeExpertCards = (cards: ExpertCardData[], legacyCards: CardData[] =
       cost: Number.isFinite(card.stats?.energy) ? Number(card.stats?.energy) : legacy?.cost ?? 0,
       type: typeMap[primaryType] || legacy?.type || "Unit",
       tags: mergedTags,
-      image_url: legacy?.image_url,
+      image_url: card.image_url || legacy?.image_url,
       image: legacy?.image,
       stats: {
         might: Number.isFinite(card.stats?.might) ? Number(card.stats?.might) : legacy?.stats.might ?? null,
@@ -991,6 +997,8 @@ type TargetRequirement =
     | { kind: "UNIT_ANYWHERE"; count: number }
     | { kind: "UNIT_HERE_ENEMY"; count: number }
     | { kind: "UNIT_HERE_FRIENDLY"; count: number }
+    | { kind: "UNIT_FRIENDLY"; count: number }  // Friendly unit anywhere (e.g., "a friendly unit")
+    | { kind: "UNIT_ENEMY"; count: number }     // Enemy unit anywhere (e.g., "an enemy unit")
     | { kind: "BATTLEFIELD"; count: number };
 
 const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?: boolean }): TargetRequirement => {
@@ -999,7 +1007,7 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
 
   // Heuristic patterns – deliberately conservative.
   const needsUnit =
-      /\b(stun|kill|banish|ready|buff|deal|give|move|return|recall|heal)\b/.test(text) && /\bunit\b/.test(text);
+      /\b(stun|kill|banish|ready|buff|deal|give|move|return|recall|heal|double)\b/.test(text) && /\bunit\b/.test(text);
   const needsBattlefield = /\bbattlefield\b/.test(text) && /\bchoose\b/.test(text);
   const needsBattlefieldForAoE =
       /\bat\s+a\s+battlefield\b/.test(text) && /\b(all|each)\s+enemy\s+units?\b/.test(text);
@@ -1008,18 +1016,30 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
 
   if (!needsUnit) return { kind: "NONE" };
 
+  // Check for "here" targeting first
   const wantsEnemyHere = /\benemy unit here\b/.test(text) || (/\bunit here\b/.test(text) && /\benemy\b/.test(text));
-  const wantsFriendlyHere = /\byour unit here\b/.test(text) || (/\bunit here\b/.test(text) && /\byour\b/.test(text));
+  const wantsFriendlyHere = /\byour unit here\b/.test(text) || (/\bunit here\b/.test(text) && /\byour\b/.test(text)) ||
+      /\bfriendly unit here\b/.test(text);
 
   if (wantsEnemyHere) return { kind: "UNIT_HERE_ENEMY", count: 1 };
   if (wantsFriendlyHere) return { kind: "UNIT_HERE_FRIENDLY", count: 1 };
+
+  // Check for friendly/enemy unit targeting (anywhere)
+  // Patterns: "a friendly unit", "friendly unit's", "your unit"
+  const wantsFriendly = /\ba\s+friendly\s+unit\b/.test(text) || /\bfriendly\s+unit's\b/.test(text) ||
+      /\byour\s+unit\b/.test(text) || /\bone\s+of\s+your\s+units\b/.test(text);
+  // Patterns: "an enemy unit", "enemy unit's"
+  const wantsEnemy = /\ban?\s+enemy\s+unit\b/.test(text) || /\benemy\s+unit's\b/.test(text);
+
+  if (wantsFriendly && !wantsEnemy) return { kind: "UNIT_FRIENDLY", count: 1 };
+  if (wantsEnemy && !wantsFriendly) return { kind: "UNIT_ENEMY", count: 1 };
 
   const moveCount = text.match(/\bmove\s+(?:up\s+to\s+)?(\d+|one|two|three|four|five)\s+(?:friendly|your)?\s*units?\b/);
   if (moveCount) {
     const wordToNum: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5 };
     const raw = moveCount[1];
     const n = /^\d+$/.test(raw) ? parseInt(raw, 10) : wordToNum[raw] ?? 1;
-    return { kind: "UNIT_ANYWHERE", count: Number.isFinite(n) ? n : 1 };
+    return { kind: "UNIT_FRIENDLY", count: Number.isFinite(n) ? n : 1 };
   }
 
   return { kind: "UNIT_ANYWHERE", count: 1 };
@@ -5144,6 +5164,10 @@ export default function RiftboundGame() {
           return hereMatches && isFriendly;
         case "UNIT_HERE_ENEMY":
           return hereMatches && isEnemy;
+        case "UNIT_FRIENDLY":
+          return isFriendly;
+        case "UNIT_ENEMY":
+          return isEnemy;
         case "UNIT_ANYWHERE":
           return true;
         case "NONE":
@@ -5219,8 +5243,8 @@ export default function RiftboundGame() {
     if (difficulty === "EASY" || difficulty === "MEDIUM") return [opts[0].t];
 
     // HARD+: pick the highest-might relevant unit (enemy or friendly depending on req).
-    const wantEnemy = req.kind === "UNIT_HERE_ENEMY";
-    const wantFriendly = req.kind === "UNIT_HERE_FRIENDLY";
+    const wantEnemy = req.kind === "UNIT_HERE_ENEMY" || req.kind === "UNIT_ENEMY";
+    const wantFriendly = req.kind === "UNIT_HERE_FRIENDLY" || req.kind === "UNIT_FRIENDLY";
 
     const scored = opts
         .map((o) => {
