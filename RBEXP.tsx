@@ -697,10 +697,11 @@ const normalizeExpertCards = (cards: ExpertCardData[], legacyCards: CardData[] =
     };
 
     const rawText = (card.rules_text?.raw?.toString() ?? "").replace(/\\/g, "").trim();
+    // Merge keywords from rules_text and bracket extraction, filtering out icon tokens
     const keywords = [
       ...(card.rules_text?.keywords || []),
       ...extractBracketKeywords(rawText),
-    ].filter(Boolean);
+    ].filter((kw) => kw && !isIconKeywordToken(kw));
 
     const { trigger, effectText } = deriveTriggerAndEffect(rawText, card.game_logic);
     const subtypeTags = extractSubtypeTags(typeLine);
@@ -888,13 +889,25 @@ const getUnitsInPlay = (game: GameState, player: PlayerId): CardInstance[] => [
   ...game.battlefields.flatMap((b) => b.units[player]),
 ];
 
+// Filter out icon-like keyword tokens that represent costs or stats, not actual keywords
+const isIconKeywordToken = (kw: string): boolean => {
+  const cleaned = String(kw || "").trim();
+  if (!cleaned) return false;
+  // Numeric costs like [1], [2], [0]
+  if (/^\d+$/.test(cleaned)) return true;
+  // Single-letter icons: S=Might, A=Any rune, C=Class rune, T=Tap, E=Exhaust
+  const upper = cleaned.toUpperCase();
+  return ["S", "A", "C", "T", "E"].includes(upper);
+};
+
 const extractBracketKeywords = (text: string): string[] => {
   const out: string[] = [];
   const regex = /\[([^\]]+)\]/g;
   let m: RegExpExecArray | null;
   while ((m = regex.exec(text))) {
     const kw = (m[1] || "").trim();
-    if (kw) out.push(kw);
+    // Filter out icon tokens that aren't actual keywords
+    if (kw && !isIconKeywordToken(kw)) out.push(kw);
   }
   return out;
 };
@@ -2161,6 +2174,13 @@ const payCost = (
 const normalizeEffectText = (text: string): string =>
     (text || "")
         .replace(/_/g, " ")
+        .replace(/\[\s*add\s*\]\s*/gi, "add ")  // [Add] -> add
+        .replace(/\[\s*s\s*\]/gi, "might")      // [S] -> might
+        .replace(/\[\s*a\s*\]/gi, "any-rune")   // [A] -> any-rune
+        .replace(/\[\s*c\s*\]/gi, "class-rune") // [C] -> class-rune
+        .replace(/\[\s*t\s*\]/gi, "tap")        // [T] -> tap
+        .replace(/\[\s*e\s*\]/gi, "exhaust")    // [E] -> exhaust
+        .replace(/\[(\d+)\]/g, "$1 energy")     // [N] -> N energy
         .replace(/\s+/g, " ")
         .trim();
 
@@ -2635,7 +2655,13 @@ const resolveEffectText = (
   const normalize = (s: string) =>
       (s || "")
           .replace(/_/g, " ")
-          .replace(/\[\s*add\s*\]\s*/gi, "add ")
+          .replace(/\[\s*add\s*\]\s*/gi, "add ")  // [Add] -> add
+          .replace(/\[\s*s\s*\]/gi, "might")      // [S] -> might
+          .replace(/\[\s*a\s*\]/gi, "any-rune")   // [A] -> any-rune
+          .replace(/\[\s*c\s*\]/gi, "class-rune") // [C] -> class-rune
+          .replace(/\[\s*t\s*\]/gi, "tap")        // [T] -> tap
+          .replace(/\[\s*e\s*\]/gi, "exhaust")    // [E] -> exhaust
+          .replace(/\[(\d+)\]/g, "$1 energy")     // [N] -> N energy
           .replace(/\s+/g, " ")
           .trim();
 
@@ -5722,12 +5748,19 @@ export default function RiftboundGame() {
         lines.find((l) => /^\s*\[e\]\s*:/i.test(l)) ||
         lines.find((l) => /^\s*\[t\]\s*:/i.test(l)) ||  // [T]: is tap/exhaust notation
         lines.find((l) => /\bexhaust\b/i.test(l) && l.includes(":")) ||
+        lines.find((l) => /\[\d+\]\s*,\s*\[t\]\s*:/i.test(l)) ||  // [N], [T]: pattern (e.g., Viktor's [1], [T]:)
         lines.find((l) => /,\s*\[t\]\s*:/i.test(l)) ||  // cost, [T]: pattern
         null;
 
     if (!pickLine) return null;
 
-    const ex = /\bexhaust\b\s*:/i.exec(pickLine) || /^\s*\[e\]\s*:/i.exec(pickLine) || /^\s*\[t\]\s*:/i.exec(pickLine) || /,\s*\[t\]\s*:/i.exec(pickLine);
+    // Match the tap/exhaust marker to find where the effect text starts
+    const ex = 
+        /\bexhaust\b\s*:/i.exec(pickLine) || 
+        /^\s*\[e\]\s*:/i.exec(pickLine) || 
+        /^\s*\[t\]\s*:/i.exec(pickLine) || 
+        /\[\d+\]\s*,\s*\[t\]\s*:/i.exec(pickLine) ||  // [N], [T]: pattern
+        /,\s*\[t\]\s*:/i.exec(pickLine);
     if (!ex) return null;
 
     // Everything before "exhaust:" is treated as an activation cost (e.g. "1 energy,").
@@ -5740,10 +5773,23 @@ export default function RiftboundGame() {
       powerAny: 0,
     };
 
+    // Parse energy costs - both "N energy" and "[N]" formats
     const energyM = costPart.match(/(\d+)\s*energy\b/i);
     if (energyM) {
       const n = parseInt(energyM[1], 10);
       if (Number.isFinite(n) && n > 0) cost.energy += n;
+    }
+    
+    // Also check for bracketed number costs like [1], [2] which represent energy
+    const bracketedEnergy = costPart.match(/\[(\d+)\]/g);
+    if (bracketedEnergy) {
+      for (const match of bracketedEnergy) {
+        const numMatch = match.match(/\[(\d+)\]/);
+        if (numMatch) {
+          const n = parseInt(numMatch[1], 10);
+          if (Number.isFinite(n) && n > 0) cost.energy += n;
+        }
+      }
     }
 
     // Domain-specific rune costs (rare; but some legends/spells may have them)
@@ -5760,11 +5806,23 @@ export default function RiftboundGame() {
       const n = classCost[1] ? parseInt(classCost[1], 10) : 1;
       if (Number.isFinite(n) && n > 0) cost.powerClass += n;
     }
+    
+    // Also check for [C] which represents class rune cost
+    const bracketedClass = (costPart.match(/\[C\]/gi) || []).length;
+    if (bracketedClass > 0) {
+      cost.powerClass += bracketedClass;
+    }
 
     const anyM = costPart.match(/(\d+)\s*rune\s+of\s+any\s+type\b/i);
     if (anyM) {
       const n = parseInt(anyM[1], 10);
       if (Number.isFinite(n) && n > 0) cost.powerAny += n;
+    }
+    
+    // Also check for [A] which represents any rune cost
+    const bracketedAny = (costPart.match(/\[A\]/gi) || []).length;
+    if (bracketedAny > 0) {
+      cost.powerAny += bracketedAny;
     }
 
     // Effect is everything after "exhaust:" or "[T]:" (cleaned up a bit)
@@ -5777,7 +5835,10 @@ export default function RiftboundGame() {
     // Remove leading "exhaust:" (with optional costs before it).
     eff = eff.replace(/^[\s\S]*?\bexhaust\b\s*:/i, "").trim();
     
-    // Remove cost + [T]: pattern (e.g., "[2], [T]:")
+    // Remove [N], [T]: pattern (e.g., "[1], [T]:" or "[2], [T]:")
+    eff = eff.replace(/^\s*\[\d+\]\s*,\s*\[t\]\s*:/i, "").trim();
+    
+    // Remove cost + [T]: pattern (e.g., "2 energy, [T]:")
     eff = eff.replace(/^[\s\S]*?,\s*\[t\]\s*:/i, "").trim();
 
     // Remove leading "Action —" / "Reaction —" and also "[Reaction], [Legion] —" style labels.
@@ -8847,6 +8908,65 @@ export default function RiftboundGame() {
       line-height: 1.3;
     }
 
+    .rb-mulliganBanner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: linear-gradient(135deg, rgba(60, 80, 120, 0.97) 0%, rgba(40, 55, 90, 0.97) 100%);
+      border-bottom: 2px solid rgba(130, 210, 255, 0.5);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .rb-mulliganBanner h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 900;
+      color: #fff;
+    }
+
+    .rb-mulliganBanner .rb-mulliganInfo {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .rb-mulliganConfirmBtn {
+      padding: 12px 28px;
+      border-radius: 14px;
+      border: 2px solid rgba(130, 210, 255, 0.6);
+      background: linear-gradient(135deg, rgba(80, 160, 255, 0.35) 0%, rgba(60, 130, 220, 0.35) 100%);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .rb-mulliganConfirmBtn:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(100, 180, 255, 0.5) 0%, rgba(80, 150, 240, 0.5) 100%);
+      border-color: rgba(150, 220, 255, 0.8);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(100, 180, 255, 0.3);
+    }
+
+    .rb-mulliganConfirmBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .rb-mulliganConfirmBtn.confirmed {
+      background: rgba(90, 200, 130, 0.3);
+      border-color: rgba(90, 200, 130, 0.6);
+    }
+
     .rb-bigButton {
       width: 100%;
       padding: 12px 10px;
@@ -9407,8 +9527,36 @@ export default function RiftboundGame() {
       );
     };
 
+    // Mulligan banner component
+    const MulliganBanner = () => {
+      if (!showMulliganUI) return null;
+      const p1Done = g.players.P1.mulliganDone;
+      const p2Done = g.players.P2.mulliganDone;
+      const myDone = meState.mulliganDone;
+      const mySelected = meState.mulliganSelectedIds.length;
+      
+      return (
+        <div className="rb-mulliganBanner">
+          <h2>MULLIGAN PHASE</h2>
+          <div className="rb-mulliganInfo">
+            Click up to 2 cards in your hand to recycle, then confirm.
+            <br />
+            <span style={{ opacity: 0.7 }}>P1: {p1Done ? '✓ Done' : 'Pending'} | P2: {p2Done ? '✓ Done' : 'Pending'}</span>
+          </div>
+          <button
+            className={`rb-mulliganConfirmBtn ${myDone ? 'confirmed' : ''}`}
+            disabled={myDone}
+            onClick={() => confirmMulligan(me)}
+          >
+            {myDone ? '✓ Confirmed' : `Confirm Mulligan (${mySelected}/2)`}
+          </button>
+        </div>
+      );
+    };
+
     return (
         <div className="rb-grid">
+          <MulliganBanner />
           <div className="rb-panel">
             <div className="rb-panelTitle">Preview</div>
             {renderPreview()}
@@ -10638,27 +10786,46 @@ export default function RiftboundGame() {
                   Showing <b>{browser.length}</b> cards (filtered to identity where possible).
                 </div>
 
-                <div className="rb-row" style={{ marginTop: 10, flexWrap: "wrap" }}>
-                  {browser.map((c) => {
-                    const cur = Math.floor((spec.main || {})[c.id] || 0);
-                    const preview = toPreview(c, "browse");
-                    return (
-                        <div key={c.id} style={{ width: 118, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                          <ArenaCard
-                              card={preview}
-                              size="xs"
-                              showReadyDot={false}
-                              onClick={() => updateDeck(pid, (d) => ({ ...d, main: bumpCount(d.main || {}, c.id, +1, 0, 3) }))}
-                              onDoubleClick={() => setHoverCard(preview)}
-                          />
-                          <div style={{ fontSize: 11, fontWeight: 800, textAlign: "center", maxWidth: 116, lineHeight: 1.1 }}>
-                            {c.name}
+                <div style={{ marginTop: 10, maxHeight: 480, overflow: "auto", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 12, padding: 8 }}>
+                  <div className="rb-row" style={{ flexWrap: "wrap", gap: 8 }}>
+                    {browser.map((c) => {
+                      const cur = Math.floor((spec.main || {})[c.id] || 0);
+                      const preview = toPreview(c, "browse");
+                      return (
+                          <div key={c.id} style={{ width: 118, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: 4, borderRadius: 8, background: cur > 0 ? "rgba(130, 210, 255, 0.1)" : "transparent" }}>
+                            <ArenaCard
+                                card={preview}
+                                size="xs"
+                                showReadyDot={false}
+                                onClick={() => setHoverCard(preview)}
+                            />
+                            <div style={{ fontSize: 10, fontWeight: 800, textAlign: "center", maxWidth: 110, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {c.name}
+                            </div>
+                            <div style={{ display: "flex", gap: 4, alignItems: "center", marginTop: 2 }}>
+                              <button
+                                className="rb-miniButton"
+                                style={{ padding: "4px 10px", fontSize: 14, fontWeight: 900 }}
+                                onClick={(e) => { e.stopPropagation(); updateDeck(pid, (d) => ({ ...d, main: bumpCount(d.main || {}, c.id, -1, 0, 3) })); }}
+                                disabled={cur <= 0}
+                              >
+                                −
+                              </button>
+                              <div style={{ minWidth: 20, textAlign: "center", fontWeight: 900, fontSize: 12 }}>{cur}</div>
+                              <button
+                                className="rb-miniButton"
+                                style={{ padding: "4px 10px", fontSize: 14, fontWeight: 900 }}
+                                onClick={(e) => { e.stopPropagation(); updateDeck(pid, (d) => ({ ...d, main: bumpCount(d.main || {}, c.id, +1, 0, 3) })); }}
+                                disabled={cur >= 3}
+                              >
+                                +
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ fontSize: 11, opacity: 0.8 }}>x{cur}</div>
-                        </div>
-                    );
-                  })}
-                  {browser.length === 0 ? <div className="rb-softText">No results.</div> : null}
+                      );
+                    })}
+                    {browser.length === 0 ? <div className="rb-softText">No results.</div> : null}
+                  </div>
                 </div>
               </div>
 
