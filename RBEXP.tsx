@@ -30,6 +30,11 @@ type MatchState = {
   wins: Record<PlayerId, number>;
   usedBattlefieldIds: Record<PlayerId, string[]>;
   lastGameWinner: PlayerId | null;
+  // Starting player selection
+  diceRoll?: { P1: number; P2: number } | null;  // Dice roll results for game 1
+  startingPlayerChooser?: PlayerId | null;  // Who chooses starting player (dice winner for game 1, loser for games 2/3)
+  chosenStartingPlayer?: PlayerId | null;  // The chosen starting player for next game
+  pendingStartingPlayerChoice?: boolean;  // Whether we're waiting for starting player choice
 };
 
 
@@ -4733,6 +4738,7 @@ interface DeckSpec {
   battlefields: DeckCardId[]; // choose 3; a random 1 is used in-duel
   runes: Record<DeckCardId, number>; // exactly 12 total
   main: Record<DeckCardId, number>; // >= 40 total, max 3 per card (including chosen champion)
+  sideboard: Record<DeckCardId, number>; // up to 8 cards total for Bo3 sideboarding
 }
 
 // ----------------------------- Deck Library + AI Config -----------------------------
@@ -4760,6 +4766,7 @@ const emptyDeckSpec = (): DeckSpec => ({
   battlefields: [],
   runes: {},
   main: {},
+  sideboard: {},
 });
 
 const countTotal = (counts: Record<string, number>): number =>
@@ -4901,6 +4908,10 @@ export default function RiftboundGame() {
     P1: null,
     P2: null,
   });
+  // Dice roll and starting player selection state
+  const [showDiceRoll, setShowDiceRoll] = useState<{ P1: number; P2: number; winner: PlayerId } | null>(null);
+  const [pendingStartingPlayerChoice, setPendingStartingPlayerChoice] = useState<{ chooser: PlayerId; gameNumber: number } | null>(null);
+  const [pendingGameStart, setPendingGameStart] = useState<{ startingPlayer: PlayerId; gameState: GameState; matchState: MatchState | null } | null>(null);
 
 
 
@@ -5441,7 +5452,23 @@ export default function RiftboundGame() {
         },
       ];
 
-      const first: PlayerId = Math.random() < 0.5 ? "P1" : "P2";
+      // Dice roll for starting player selection (game 1)
+      const p1Roll = Math.floor(Math.random() * 6) + 1;
+      const p2Roll = Math.floor(Math.random() * 6) + 1;
+      // Re-roll on tie until we have a winner
+      let p1Final = p1Roll;
+      let p2Final = p2Roll;
+      while (p1Final === p2Final) {
+        p1Final = Math.floor(Math.random() * 6) + 1;
+        p2Final = Math.floor(Math.random() * 6) + 1;
+      }
+      const diceWinner: PlayerId = p1Final > p2Final ? "P1" : "P2";
+      
+      // Show dice roll overlay and let winner choose
+      setShowDiceRoll({ P1: p1Final, P2: p2Final, winner: diceWinner });
+      
+      // Store the game state to be started after choice
+      const first: PlayerId = diceWinner; // Default to dice winner going first
 
       const matchLine =
           fmt === "BO3" && ms
@@ -5503,22 +5530,49 @@ export default function RiftboundGame() {
 
     cleanupStateBased(g);
 
-      setGame(g);
-      setViewerId(first);
-      setPreGameView("SETUP");
-      setSelectedHandCardId(null);
-      setPendingPlay(null);
-      setPendingDestination(null);
-      setPendingTargets([{ kind: "NONE" }]);
-      setPendingChainChoice(null);
-      setPendingAccelerate(false);
-      setHideChoice({ cardId: null, battlefieldIndex: null });
-      setMoveSelection({ from: null, unitIds: [], to: null });
-      setArenaMove(null);
-      setArenaHideCardId(null);
-      setHoverCard(null);
+      // Store pending game start - will be activated after dice roll choice
+      setPendingGameStart({ startingPlayer: first, gameState: g, matchState: ms });
+      setPendingStartingPlayerChoice({ chooser: diceWinner, gameNumber: 1 });
     } catch (err: any) {
       alert(String(err?.message || err));
+    }
+  };
+
+  // Function to confirm starting player choice and actually start the game
+  const confirmStartingPlayerChoice = (chosenStartingPlayer: PlayerId) => {
+    if (!pendingGameStart) return;
+    
+    const g = pendingGameStart.gameState;
+    const ms = pendingGameStart.matchState;
+    
+    // Update game state with chosen starting player
+    g.turnPlayer = chosenStartingPlayer;
+    g.startingPlayer = chosenStartingPlayer;
+    g.priorityPlayer = chosenStartingPlayer;
+    g.log.unshift(`${chosenStartingPlayer} will go first.`);
+    
+    setGame(g);
+    setViewerId(chosenStartingPlayer);
+    setPreGameView("SETUP");
+    setSelectedHandCardId(null);
+    setPendingPlay(null);
+    setPendingDestination(null);
+    setPendingTargets([{ kind: "NONE" }]);
+    setPendingChainChoice(null);
+    setPendingAccelerate(false);
+    setHideChoice({ cardId: null, battlefieldIndex: null });
+    setMoveSelection({ from: null, unitIds: [], to: null });
+    setArenaMove(null);
+    setArenaHideCardId(null);
+    setHoverCard(null);
+    
+    // Clear the pending states
+    setShowDiceRoll(null);
+    setPendingStartingPlayerChoice(null);
+    setPendingGameStart(null);
+    
+    if (ms) {
+      setMatchState(ms);
     }
   };
 
@@ -5649,7 +5703,9 @@ export default function RiftboundGame() {
         },
       ];
 
-      const first: PlayerId = Math.random() < 0.5 ? "P1" : "P2";
+      // Loser of previous game chooses starting player for games 2/3
+      const loser: PlayerId = winner === "P1" ? "P2" : "P1";
+      const first: PlayerId = loser; // Default, will be overridden by choice
 
       const matchLine = [`Match: Best of 3 • Game ${msNext.gamesCompleted + 1} • Score P1 ${msNext.wins.P1}-${msNext.wins.P2} P2`];
 
@@ -5670,7 +5726,7 @@ export default function RiftboundGame() {
         log: [
           ...matchLine,
           `Previous game winner: ${winner ?? "Unknown"}.`,
-          `Next game setup complete. First player: ${first}.`,
+          `${loser} (loser) chooses who goes first.`,
           `P1 Legend: ${p1Built.legend.name} | Champion: ${p1Built.champion.name}`,
           `P2 Legend: ${p2Built.legend.name} | Champion: ${p2Built.champion.name}`,
           `Battlefield 1 (P1 choice): ${bf1.name}`,
@@ -5691,20 +5747,11 @@ export default function RiftboundGame() {
 
       cleanupStateBased(nextGame);
 
-      setGame(nextGame);
-      setViewerId(first);
-      setPreGameView("SETUP");
-      setSelectedHandCardId(null);
-      setPendingPlay(null);
-      setPendingDestination(null);
-      setPendingTargets([{ kind: "NONE" }]);
-      setPendingChainChoice(null);
-      setPendingAccelerate(false);
-      setHideChoice({ cardId: null, battlefieldIndex: null });
-      setMoveSelection({ from: null, unitIds: [], to: null });
-      setArenaMove(null);
-      setArenaHideCardId(null);
-      setHoverCard(null);
+      // Store pending game start - loser chooses who goes first
+      setPendingGameStart({ startingPlayer: first, gameState: nextGame, matchState: msNext });
+      setPendingStartingPlayerChoice({ chooser: loser, gameNumber: msNext.gamesCompleted + 1 });
+      // Show a simple "choose starting player" UI (no dice roll for games 2/3)
+      setShowDiceRoll(null); // No dice roll for games 2/3
     } catch (err: any) {
       setMatchState(msAfter);
       alert(String(err?.message || err));
@@ -11773,6 +11820,21 @@ export default function RiftboundGame() {
           return ((a.card as any).name || "").localeCompare((b.card as any).name || "");
         });
 
+    // Sideboard rows
+    const sideboardRows = Object.entries(spec.sideboard || {})
+        .map(([id, n]) => ({ id, n: n as number, card: getCardById(allCards, id) }))
+        .filter((x): x is { id: string; n: number; card: CardData } => x.card !== null && (x.n || 0) > 0)
+        .sort((a, b) => {
+          const ta = (a.card as any).type || "";
+          const tb = (b.card as any).type || "";
+          if (ta !== tb) return ta.localeCompare(tb);
+          const ca = Number((a.card as any).cost || 0);
+          const cb = Number((b.card as any).cost || 0);
+          if (ca !== cb) return ca - cb;
+          return ((a.card as any).name || "").localeCompare((b.card as any).name || "");
+        });
+    const sideboardCount = countTotal(spec.sideboard || {});
+
     const activeLegendName = legend?.name || "—";
     const activeIdentityText = legend ? identity.join(", ") : "—";
 
@@ -12577,7 +12639,7 @@ export default function RiftboundGame() {
                   Click + / − to adjust (max 3 copies per card). Your chosen Champion must be included at least once.
                 </div>
 
-                <div style={{ marginTop: 10, maxHeight: 560, overflow: "auto", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 12, padding: 8 }}>
+                <div style={{ marginTop: 10, maxHeight: 400, overflow: "auto", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 12, padding: 8 }}>
                   {deckRows.length === 0 ? <div className="rb-softText">—</div> : null}
                   {deckRows.map((row) => {
                     const cd = row.card!;
@@ -12601,9 +12663,73 @@ export default function RiftboundGame() {
                           <button className="rb-miniButton" onClick={() => updateDeck(pid, (d) => ({ ...d, main: bumpCount(d.main || {}, cd.id, +1, 0, 3) }))}>
                             +
                           </button>
+                          <button 
+                            className="rb-miniButton" 
+                            style={{ fontSize: 10, padding: "2px 6px" }}
+                            title="Move to sideboard"
+                            onClick={() => updateDeck(pid, (d) => {
+                              const newMain = bumpCount(d.main || {}, cd.id, -1, 0, 3);
+                              const newSide = bumpCount(d.sideboard || {}, cd.id, +1, 0, 8 - countTotal(d.sideboard || {}));
+                              return { ...d, main: newMain, sideboard: newSide };
+                            })}
+                          >
+                            →SB
+                          </button>
                         </div>
                     );
                   })}
+                </div>
+
+                {/* Sideboard Section */}
+                <div style={{ marginTop: 16 }}>
+                  <div className="rb-panelTitle">Sideboard ({sideboardCount}/8)</div>
+                  <div className="rb-softText" style={{ fontSize: 11 }}>
+                    Up to 8 cards for Bo3 sideboarding between games.
+                  </div>
+                  <div style={{ marginTop: 8, maxHeight: 180, overflow: "auto", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 12, padding: 8 }}>
+                    {sideboardRows.length === 0 ? <div className="rb-softText">—</div> : null}
+                    {sideboardRows.map((row) => {
+                      const cd = row.card!;
+                      const cnt = Math.floor(row.n || 0);
+                      const preview = toPreview(cd, "deck");
+                      return (
+                          <div key={row.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 4px", borderRadius: 10 }}>
+                            <div style={{ width: 36 }}>
+                              <ArenaCard card={preview} size="xs" showReadyDot={false} onClick={() => setHoverCard(preview)} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cd.name}</div>
+                              <div style={{ fontSize: 11, opacity: 0.8 }}>
+                                {cd.type} • cost {cd.cost} • {cd.domain}
+                              </div>
+                            </div>
+                            <button 
+                              className="rb-miniButton" 
+                              style={{ fontSize: 10, padding: "2px 6px" }}
+                              title="Move to main deck"
+                              onClick={() => updateDeck(pid, (d) => {
+                                const newSide = bumpCount(d.sideboard || {}, cd.id, -1, 0, 8);
+                                const newMain = bumpCount(d.main || {}, cd.id, +1, 0, 3);
+                                return { ...d, main: newMain, sideboard: newSide };
+                              })}
+                            >
+                              ←Main
+                            </button>
+                            <button className="rb-miniButton" onClick={() => updateDeck(pid, (d) => ({ ...d, sideboard: bumpCount(d.sideboard || {}, cd.id, -1, 0, 8) }))}>
+                              −
+                            </button>
+                            <div style={{ width: 26, textAlign: "center", fontWeight: 900 }}>{cnt}</div>
+                            <button 
+                              className="rb-miniButton" 
+                              disabled={sideboardCount >= 8}
+                              onClick={() => updateDeck(pid, (d) => ({ ...d, sideboard: bumpCount(d.sideboard || {}, cd.id, +1, 0, 8 - countTotal(d.sideboard || {}) + cnt) }))}
+                            >
+                              +
+                            </button>
+                          </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {hoverCard ? (
@@ -13642,6 +13768,192 @@ export default function RiftboundGame() {
   };
 
 
+  // Dice roll and starting player choice modal
+  const renderDiceRollModal = () => {
+    if (!pendingStartingPlayerChoice) return null;
+    
+    const { chooser, gameNumber } = pendingStartingPlayerChoice;
+    const hasDiceRoll = showDiceRoll !== null;
+    const p1Roll = showDiceRoll?.P1 ?? 0;
+    const p2Roll = showDiceRoll?.P2 ?? 0;
+    const diceWinner = showDiceRoll?.winner ?? chooser;
+    
+    // Check if AI should auto-choose
+    const isAiChooser = aiByPlayer[chooser]?.enabled;
+    
+    // Auto-choose for AI after a delay
+    React.useEffect(() => {
+      if (isAiChooser && pendingStartingPlayerChoice) {
+        const timer = setTimeout(() => {
+          // AI always chooses to go first (simple heuristic)
+          confirmStartingPlayerChoice(chooser);
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }, [isAiChooser, pendingStartingPlayerChoice]);
+    
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 100 }}>
+        <div style={{ width: 500, maxWidth: "95vw", background: "#111827", border: "2px solid #374151", borderRadius: 16, padding: 24, textAlign: "center" }}>
+          {hasDiceRoll ? (
+            <>
+              <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 16 }}>Dice Roll - Game {gameNumber}</div>
+              
+              <div style={{ display: "flex", justifyContent: "center", gap: 40, marginBottom: 20 }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 14, opacity: 0.8, marginBottom: 8 }}>P1</div>
+                  <div style={{ 
+                    width: 80, height: 80, 
+                    background: diceWinner === "P1" ? "#10b981" : "#374151", 
+                    borderRadius: 12, 
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 36, fontWeight: 900,
+                    border: diceWinner === "P1" ? "3px solid #34d399" : "3px solid #4b5563"
+                  }}>
+                    {p1Roll}
+                  </div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 14, opacity: 0.8, marginBottom: 8 }}>P2</div>
+                  <div style={{ 
+                    width: 80, height: 80, 
+                    background: diceWinner === "P2" ? "#10b981" : "#374151", 
+                    borderRadius: 12, 
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 36, fontWeight: 900,
+                    border: diceWinner === "P2" ? "3px solid #34d399" : "3px solid #4b5563"
+                  }}>
+                    {p2Roll}
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ fontSize: 16, marginBottom: 20 }}>
+                <b>{diceWinner}</b> wins the dice roll and chooses who goes first!
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 16 }}>Choose Starting Player - Game {gameNumber}</div>
+              
+              <div style={{ fontSize: 16, marginBottom: 20 }}>
+                <b>{chooser}</b> lost the previous game and chooses who goes first.
+              </div>
+            </>
+          )}
+          
+          {isAiChooser ? (
+            <div style={{ fontSize: 14, opacity: 0.8 }}>
+              AI is choosing...
+            </div>
+          ) : (
+            <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
+              <button
+                style={{ 
+                  padding: "12px 24px", 
+                  borderRadius: 8, 
+                  border: "none", 
+                  background: "#10b981", 
+                  color: "white", 
+                  fontSize: 16, 
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
+                onClick={() => confirmStartingPlayerChoice(chooser)}
+              >
+                I go first
+              </button>
+              <button
+                style={{ 
+                  padding: "12px 24px", 
+                  borderRadius: 8, 
+                  border: "none", 
+                  background: "#6366f1", 
+                  color: "white", 
+                  fontSize: 16, 
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
+                onClick={() => confirmStartingPlayerChoice(chooser === "P1" ? "P2" : "P1")}
+              >
+                Opponent goes first
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Game over modal for Bo1 games
+  const renderGameOverModal = () => {
+    if (!g || g.step !== "GAME_OVER") return null;
+    
+    // Don't show for Bo3 (handled by renderMatchOverlay)
+    if (matchState?.format === "BO3") return null;
+    
+    const winner = getGameWinner(g);
+    
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 100 }}>
+        <div style={{ width: 500, maxWidth: "95vw", background: "#111827", border: "2px solid #374151", borderRadius: 16, padding: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 28, fontWeight: 900, marginBottom: 12 }}>Game Over</div>
+          
+          <div style={{ fontSize: 20, marginBottom: 24 }}>
+            {winner ? (
+              <><b style={{ color: "#10b981" }}>{winner}</b> wins!</>
+            ) : (
+              "Draw!"
+            )}
+          </div>
+          
+          <div style={{ fontSize: 14, opacity: 0.8, marginBottom: 20 }}>
+            P1: {g.players.P1.points} points | P2: {g.players.P2.points} points
+          </div>
+          
+          <div style={{ display: "flex", justifyContent: "center", gap: 16, flexWrap: "wrap" }}>
+            <button
+              style={{ 
+                padding: "12px 24px", 
+                borderRadius: 8, 
+                border: "none", 
+                background: "#374151", 
+                color: "white", 
+                fontSize: 14, 
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+              onClick={() => {
+                setGame(null);
+                setPreGameView("DECK_BUILDER");
+              }}
+            >
+              Return to Deck Building
+            </button>
+            <button
+              style={{ 
+                padding: "12px 24px", 
+                borderRadius: 8, 
+                border: "none", 
+                background: "#10b981", 
+                color: "white", 
+                fontSize: 14, 
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+              onClick={() => {
+                setGame(null);
+                startDeckBuilderDuel();
+              }}
+            >
+              Play Again (Same Decks)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderMatchOverlay = () => {
     if (!g || !matchState || matchState.format !== "BO3") return null;
 
@@ -13877,6 +14189,8 @@ export default function RiftboundGame() {
         {renderChainChoiceModal()}
         {renderPlayModal()}
         {renderDamageAssignmentModal()}
+        {renderDiceRollModal()}
+        {renderGameOverModal()}
       </div>
   );
 }
