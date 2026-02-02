@@ -5835,7 +5835,9 @@ export default function RiftboundGame() {
         break;
       case "CHANNEL": {
         // Channel 2 runes; second player's first channel phase channels +1 in Duel.
-        const secondPlayersFirstChannel = d.turnNumber === 1 && d.turnPlayer !== d.startingPlayer;
+        // Note: turnNumber increments at end of each turn, so when P2 takes their first turn,
+        // turnNumber is 2 (P1's turn was 1, then it incremented to 2 at end of P1's turn).
+        const secondPlayersFirstChannel = d.turnNumber === 2 && d.turnPlayer !== d.startingPlayer;
         const count = 2 + (secondPlayersFirstChannel ? 1 : 0);
         channelRunes(d, d.turnPlayer, count);
         d.step = "DRAW";
