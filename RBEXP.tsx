@@ -275,7 +275,10 @@ type EngineAction =
     | { type: "RUNE_EXHAUST"; player: PlayerId; runeInstanceId: string }
     | { type: "RUNE_RECYCLE"; player: PlayerId; runeInstanceId: string }
     | { type: "SEAL_EXHAUST"; player: PlayerId; gearInstanceId: string }
-    | { type: "LEGEND_ACTIVATE"; player: PlayerId; targets?: Target[]; autoPay?: boolean };
+    | { type: "LEGEND_ACTIVATE"; player: PlayerId; targets?: Target[]; autoPay?: boolean }
+    | { type: "EQUIP_START"; player: PlayerId; gearInstanceId: string }
+    | { type: "EQUIP_CONFIRM"; player: PlayerId; unitInstanceId: string }
+    | { type: "EQUIP_CANCEL"; player: PlayerId };
 
 interface ChainItem {
   id: string;
@@ -370,6 +373,13 @@ interface GameState {
     unitInstanceId: string;
     unitOwner: PlayerId;
     availableGearIds: string[];
+  } | null;
+  
+  // Equip ability pending choice (selecting a unit to attach equipment to)
+  pendingEquipChoice?: {
+    gearInstanceId: string;
+    gearOwner: PlayerId;
+    equipCost: { energy: number; power: number; powerDomain: Domain | "CLASS" };
   } | null;
   
   // Delayed triggers that fire on specific events this turn
@@ -837,6 +847,46 @@ const isHiddenCard = (card: CardInstance | null | undefined): boolean => {
   return !!card && hasKeyword(card, "Hidden");
 };
 
+// Check if a gear card is Equipment (has Equip keyword or equipment in type_line)
+const isEquipment = (card: CardInstance | null | undefined): boolean => {
+  if (!card || card.type !== "Gear") return false;
+  if (hasKeyword(card, "Equip")) return true;
+  const typeLine = (card as any).type_line || "";
+  return typeLine.toLowerCase().includes("equipment");
+};
+
+// Check if equipment has Quick-Draw (auto-attaches when played)
+const hasQuickDraw = (card: CardInstance | null | undefined): boolean => {
+  return !!card && hasKeyword(card, "Quick-Draw");
+};
+
+// Parse the Equip cost from equipment card text
+// Returns { energy: number, power: number, powerDomain: Domain | "CLASS" }
+const parseEquipCost = (card: CardInstance): { energy: number; power: number; powerDomain: Domain | "CLASS" } | null => {
+  if (!isEquipment(card)) return null;
+  
+  const raw = (card.ability?.raw_text || card.ability?.effect_text || "").toLowerCase();
+  
+  // Pattern: [Equip] [C] or [Equip] [1][C] or [Equip] — [C]
+  // [C] = 1 power in gear's domain (class rune)
+  // [1] = 1 energy
+  // [1][C] = 1 energy + 1 power
+  
+  // Check for energy cost like [1], [2], etc.
+  const energyMatch = raw.match(/\[equip\].*?\[(\d+)\].*?\[c\]/i) || 
+                      raw.match(/\[equip\]\s*\\?\[(\d+)\]\\?\[c\]/i);
+  const energy = energyMatch ? parseInt(energyMatch[1], 10) : 0;
+  
+  // Check for power cost [C] (class rune) or [CC] (2 class runes)
+  const powerMatch = raw.match(/\[equip\].*?\[(c+)\]/i);
+  const power = powerMatch ? powerMatch[1].length : 1; // Default to 1 if [Equip] is present
+  
+  // If no [C] found but has [Equip], assume 1 power cost
+  if (!powerMatch && !raw.includes("[equip]")) return null;
+  
+  return { energy, power, powerDomain: "CLASS" };
+};
+
 const keywordValue = (card: any | null | undefined, kw: string): number => {
   const ks = getKeywords(card);
   const needle = kw.toLowerCase();
@@ -860,7 +910,14 @@ const effectiveMight = (
   const base = unit.stats.might ?? 0;
   const perm = unit.buffs || 0;
   const temp = unit.tempMightBonus || 0;
-  let mod = 0;
+  
+  // Equipment bonus: sum of all attached equipment's might stats
+  const equipmentBonus = (unit.attachedGear || []).reduce((sum, gear) => {
+    const gearMight = gear.stats?.might ?? 0;
+    return sum + gearMight;
+  }, 0);
+  
+  let mod = equipmentBonus;
   if (ctx?.role === "ATTACKER") mod += keywordValue(unit, "Assault");
   if (ctx?.role === "DEFENDER") mod += keywordValue(unit, "Shield");
   const raw = `${unit.ability?.effect_text || ""} ${unit.ability?.raw_text || ""}`;
@@ -1513,6 +1570,15 @@ const killUnit = (game: GameState, owner: PlayerId, unit: CardInstance, reason =
     }
   }
 
+  // Handle attached equipment - goes to owner's trash when unit dies
+  if (unit.attachedGear && unit.attachedGear.length > 0) {
+    for (const gear of unit.attachedGear) {
+      p.trash.push({ ...gear, isReady: false });
+      game.log.unshift(`${gear.name} (attached equipment) went to Trash.`);
+    }
+    unit.attachedGear = [];
+  }
+  
   p.trash.push({ ...unit, isReady: false }); // dead cards not ready
   game.log.unshift(`${unit.name} (${owner}) was ${reason} and put into Trash.`);
   game.players[opp].enemyUnitsDiedThisTurn += 1;
@@ -6230,6 +6296,133 @@ export default function RiftboundGame() {
     return false;
   };
 
+  // ----------------------------- Equipment System -----------------------------
+
+  // Start the equip process - validates gear is equipment and player can afford the cost
+  const engineEquipStart = (d: GameState, pid: PlayerId, gearId: string): boolean => {
+    const p = d.players[pid];
+    const gidx = p.base.gear.findIndex((x) => x.instanceId === gearId);
+    if (gidx < 0) {
+      d.log.unshift("Equipment not found in base.");
+      return false;
+    }
+    const gear = p.base.gear[gidx];
+    
+    if (!isEquipment(gear)) {
+      d.log.unshift(`${gear.name} is not equipment.`);
+      return false;
+    }
+    
+    if (!gear.isReady) {
+      d.log.unshift(`${gear.name} is exhausted.`);
+      return false;
+    }
+    
+    // Check if player has any units to attach to
+    const units = getUnitsInPlay(d, pid);
+    if (units.length === 0) {
+      d.log.unshift("No units to attach equipment to.");
+      return false;
+    }
+    
+    // Parse the equip cost
+    const equipCost = parseEquipCost(gear);
+    if (!equipCost) {
+      d.log.unshift(`Could not parse equip cost for ${gear.name}.`);
+      return false;
+    }
+    
+    // Check if player can afford the cost
+    const pool = p.runePool;
+    if (pool.energy < equipCost.energy) {
+      d.log.unshift(`Cannot afford ${equipCost.energy} energy for equip cost.`);
+      return false;
+    }
+    
+    // For power cost, check if player has power in any of their domains
+    if (equipCost.power > 0) {
+      const playerDomains = p.domains;
+      const hasPower = playerDomains.some(dom => (pool.power[dom] || 0) >= equipCost.power);
+      if (!hasPower) {
+        d.log.unshift(`Cannot afford ${equipCost.power} power for equip cost.`);
+        return false;
+      }
+    }
+    
+    // Set pending equip choice
+    d.pendingEquipChoice = {
+      gearInstanceId: gearId,
+      gearOwner: pid,
+      equipCost,
+    };
+    d.log.unshift(`Select a unit to attach ${gear.name} to.`);
+    return true;
+  };
+
+  // Confirm equipment attachment to a unit
+  const engineEquipConfirm = (d: GameState, pid: PlayerId, unitId: string): boolean => {
+    if (!d.pendingEquipChoice || d.pendingEquipChoice.gearOwner !== pid) {
+      d.log.unshift("No pending equip choice.");
+      return false;
+    }
+    
+    const choice = d.pendingEquipChoice;
+    const p = d.players[pid];
+    
+    // Find the gear
+    const gidx = p.base.gear.findIndex((x) => x.instanceId === choice.gearInstanceId);
+    if (gidx < 0) {
+      d.pendingEquipChoice = null;
+      d.log.unshift("Equipment no longer in base.");
+      return false;
+    }
+    const gear = p.base.gear[gidx];
+    
+    // Find the unit
+    const unitLoc = locateUnit(d, pid, unitId);
+    if (!unitLoc) {
+      d.log.unshift("Unit not found.");
+      return false;
+    }
+    const unit = unitLoc.unit;
+    
+    // Pay the cost
+    const pool = p.runePool;
+    const cost = choice.equipCost;
+    
+    if (pool.energy < cost.energy) {
+      d.pendingEquipChoice = null;
+      d.log.unshift("Cannot afford energy cost.");
+      return false;
+    }
+    pool.energy -= cost.energy;
+    
+    if (cost.power > 0) {
+      // Pay power from player's domains
+      const playerDomains = p.domains;
+      const payDom = playerDomains.find(dom => (pool.power[dom] || 0) >= cost.power);
+      if (!payDom) {
+        pool.energy += cost.energy; // Refund energy
+        d.pendingEquipChoice = null;
+        d.log.unshift("Cannot afford power cost.");
+        return false;
+      }
+      pool.power[payDom] -= cost.power;
+      d.log.unshift(`${pid} paid ${cost.energy > 0 ? cost.energy + " energy + " : ""}${cost.power} ${payDom} power to equip.`);
+    } else if (cost.energy > 0) {
+      d.log.unshift(`${pid} paid ${cost.energy} energy to equip.`);
+    }
+    
+    // Remove gear from base and attach to unit
+    p.base.gear.splice(gidx, 1);
+    if (!unit.attachedGear) unit.attachedGear = [];
+    unit.attachedGear.push(gear);
+    
+    d.log.unshift(`${gear.name} attached to ${unit.name} (+${gear.stats?.might || 0} might).`);
+    d.pendingEquipChoice = null;
+    return true;
+  };
+
   type LegendActivatedParse = {
     rawLine: string;
     effectText: string;
@@ -6626,6 +6819,16 @@ export default function RiftboundGame() {
       case "LEGEND_ACTIVATE":
         engineActivateLegend(d, action.player, action.targets, { autoPay: action.autoPay });
         return;
+      case "EQUIP_START":
+        engineEquipStart(d, action.player, action.gearInstanceId);
+        return;
+      case "EQUIP_CONFIRM":
+        engineEquipConfirm(d, action.player, action.unitInstanceId);
+        return;
+      case "EQUIP_CANCEL":
+        d.pendingEquipChoice = null;
+        d.log.unshift(`${action.player} cancelled equipment attachment.`);
+        return;
       default:
         return;
     }
@@ -6716,6 +6919,22 @@ export default function RiftboundGame() {
         const targets = Array.isArray((actionAny as any).targets) ? (actionAny as any).targets : undefined;
         const autoPay = !!(actionAny as any).autoPay;
         return { type: "LEGEND_ACTIVATE", player: p, targets, autoPay } as EngineAction;
+      }
+
+      case "EQUIP_START": {
+        const gearInstanceId = typeof (actionAny as any).gearInstanceId === "string" ? (actionAny as any).gearInstanceId : "";
+        if (!gearInstanceId) return null;
+        return { type: "EQUIP_START", player: p, gearInstanceId } as EngineAction;
+      }
+
+      case "EQUIP_CONFIRM": {
+        const unitInstanceId = typeof (actionAny as any).unitInstanceId === "string" ? (actionAny as any).unitInstanceId : "";
+        if (!unitInstanceId) return null;
+        return { type: "EQUIP_CONFIRM", player: p, unitInstanceId } as EngineAction;
+      }
+
+      case "EQUIP_CANCEL": {
+        return { type: "EQUIP_CANCEL", player: p } as EngineAction;
       }
 
       default:
@@ -8391,7 +8610,21 @@ export default function RiftboundGame() {
           d.log.unshift(`${card.name} entered play ${item.playDestination.kind === "BASE" ? "at Base" : `at Battlefield ${item.playDestination.index + 1}`}.`);
         }
       } else if (card.type === "Gear") {
-        if (item.playDestination && item.playDestination.kind === "BF") {
+        // Check for Quick-Draw equipment - auto-attaches when played
+        if (hasQuickDraw(card) && isEquipment(card)) {
+          const units = getUnitsInPlay(d, controller);
+          if (units.length > 0) {
+            // Auto-attach to first available unit (player can choose via Weaponmaster-style UI if needed)
+            const targetUnit = units[0];
+            if (!targetUnit.attachedGear) targetUnit.attachedGear = [];
+            targetUnit.attachedGear.push(card);
+            d.log.unshift(`${card.name} (Quick-Draw) auto-attached to ${targetUnit.name} (+${card.stats?.might || 0} might).`);
+          } else {
+            // No units to attach to, goes to base
+            p.base.gear.push(card);
+            d.log.unshift(`${card.name} entered play (Gear) at Base (no units to Quick-Draw attach to).`);
+          }
+        } else if (item.playDestination && item.playDestination.kind === "BF") {
           const bf = d.battlefields[item.playDestination.index];
           bf.gear[controller].push(card);
           d.log.unshift(`${card.name} entered play (Gear) at Battlefield ${item.playDestination.index + 1} (will be recalled during Cleanup).`);
@@ -8553,6 +8786,9 @@ export default function RiftboundGame() {
                   <div><b>{c.isReady ? "Ready" : "Exhausted"}</b>{c.stunned ? " • Stunned" : ""}</div>
                   <div>Damage: {c.damage}</div>
                   <div>Buffs: {c.buffs} | Temp: {c.tempMightBonus}</div>
+                  {(c.attachedGear && c.attachedGear.length > 0) ? (
+                    <div style={{ color: "#0066cc" }}>Equipment: {c.attachedGear.map(g => `${g.name} (+${g.stats?.might || 0})`).join(", ")}</div>
+                  ) : null}
                 </>
             ) : (
                 <div><b>{c.isReady ? "Ready" : "Exhausted"}</b></div>
@@ -8628,8 +8864,13 @@ export default function RiftboundGame() {
             {p.base.gear.length === 0 ? <div style={{ fontSize: 12, color: "#666" }}>—</div> : null}
             {p.base.gear.map((gear) =>
                 renderCardPill(gear, (
-                    <div style={{ marginTop: 6 }}>
+                    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
                       <button disabled={!canActAs(pid) || !gear.isReady} onClick={() => exhaustGearForSealPower(pid, gear.instanceId)}>Exhaust (Seal) → +Power</button>
+                      {isEquipment(gear) && (
+                        <button disabled={!canActAs(pid) || !gear.isReady} onClick={() => dispatchEngineAction({ type: "EQUIP_START", player: pid, gearInstanceId: gear.instanceId })}>
+                          Equip to Unit
+                        </button>
+                      )}
                     </div>
                 ))
             )}
@@ -10270,6 +10511,41 @@ export default function RiftboundGame() {
                       </button>
                     </div>
                   </div>
+              ) : g.pendingEquipChoice && g.pendingEquipChoice.gearOwner === me ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div><b>Equip:</b> Select a unit to attach the equipment to.</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {(() => {
+                        const choice = g.pendingEquipChoice!;
+                        const gear = meState.base.gear.find(g => g.instanceId === choice.gearInstanceId);
+                        const units = getUnitsInPlay(g, me);
+                        return units.map(unit => (
+                          <button
+                            key={unit.instanceId}
+                            className="rb-miniButton"
+                            onClick={() => dispatchEngineAction({ type: "EQUIP_CONFIRM", player: me, unitInstanceId: unit.instanceId })}
+                          >
+                            {unit.name} (M{effectiveMight(unit, { role: "NONE", game: g })})
+                          </button>
+                        ));
+                      })()}
+                      <button
+                        className="rb-miniButton"
+                        onClick={() => dispatchEngineAction({ type: "EQUIP_CANCEL", player: me })}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {(() => {
+                      const choice = g.pendingEquipChoice!;
+                      const gear = meState.base.gear.find(g => g.instanceId === choice.gearInstanceId);
+                      return gear ? (
+                        <div className="rb-softText">
+                          {gear.name} (+{gear.stats?.might || 0} might) - Cost: {choice.equipCost.energy > 0 ? `${choice.equipCost.energy}E + ` : ""}{choice.equipCost.power}P
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
               ) : selectedHandCard ? (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <span>
@@ -10618,6 +10894,11 @@ export default function RiftboundGame() {
                       <button className="rb-miniButton" disabled={!canActAs(me) || !gear.isReady} onClick={() => exhaustGearForSealPower(me, gear.instanceId)}>
                         Exhaust (Seal)
                       </button>
+                      {isEquipment(gear) && (
+                        <button className="rb-miniButton" disabled={!canActAs(me) || !gear.isReady} onClick={() => dispatchEngineAction({ type: "EQUIP_START", player: me, gearInstanceId: gear.instanceId })}>
+                          Equip
+                        </button>
+                      )}
                     </div>
                 ))}
               </div>
