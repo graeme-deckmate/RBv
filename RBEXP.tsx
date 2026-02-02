@@ -1482,7 +1482,18 @@ const killUnit = (game: GameState, owner: PlayerId, unit: CardInstance, reason =
   // Check for Deathknell ability before moving to trash
   if (hasKeyword(unit, "Deathknell")) {
     const effectText = unit.ability?.effect_text || "";
-    if (effectText) {
+    const rawText = unit.ability?.raw_text || "";
+    const combinedText = `${effectText} ${rawText}`.toLowerCase();
+    
+    // Check for conditional Deathknell triggers
+    // "If I was [Mighty]" - only trigger if unit had 5+ might at time of death
+    const requiresMighty = /if i was \[?mighty\]?/i.test(combinedText);
+    const wasMighty = isMighty(unit, game);
+    
+    // Check condition - if requires mighty but wasn't mighty, skip the trigger
+    const conditionMet = !requiresMighty || wasMighty;
+    
+    if (effectText && conditionMet) {
       // Create a triggered ability chain item for Deathknell
       const deathknellItem: ChainItem = {
         id: makeId("chain"),
@@ -1497,6 +1508,8 @@ const killUnit = (game: GameState, owner: PlayerId, unit: CardInstance, reason =
       };
       game.chain.push(deathknellItem);
       game.log.unshift(`${unit.name}'s Deathknell ability triggered.`);
+    } else if (effectText && requiresMighty && !wasMighty) {
+      game.log.unshift(`${unit.name}'s Deathknell did not trigger (was not Mighty).`);
     }
   }
 
@@ -3056,6 +3069,23 @@ const resolveEffectText = (
       drawCards(game, controller, drawN);
       did = true;
     }
+  }
+
+  // "you may spend a buff to draw 1" (Monastery of Hirana)
+  if (/you may spend a buff to draw \d+/i.test(lower)) {
+    const drawMatch = lower.match(/you may spend a buff to draw (\d+)/i);
+    const drawCount = drawMatch ? parseInt(drawMatch[1], 10) : 1;
+    const units = getUnitsInPlay(game, controller);
+    const totalBuffs = units.reduce((sum, u) => sum + (u.buffs || 0), 0);
+    if (totalBuffs > 0) {
+      // Spend one buff from any unit
+      spendBuffsFromUnits(units, 1);
+      drawCards(game, controller, drawCount);
+      game.log.unshift(`${controller} spent a buff to draw ${drawCount}.`);
+    } else {
+      game.log.unshift(`${controller} has no buffs to spend.`);
+    }
+    did = true;
   }
 
   if (/\bdraw\s+1\s+for\s+each\s+of\s+your\s+mighty\s+units\b/i.test(lower)) {
