@@ -970,6 +970,19 @@ const effectiveMight = (
       const n = m ? parseInt(m[1], 10) : 0;
       if (Number.isFinite(n)) mod += n;
     }
+    
+    // Battlefield continuous effects (e.g., Trifarian War Camp: "Units here have +1 [S]")
+    if (ctx.battlefieldIndex != null) {
+      const bf = ctx.game.battlefields[ctx.battlefieldIndex];
+      const bfRaw = bf.card.rules_text?.raw || bf.card.ability?.effect_text || "";
+      // "Units here have +N [S]" pattern (Trifarian War Camp)
+      const unitsHereBonus = bfRaw.match(/units here have \+(\d+)\s*\[?s\]?/i);
+      if (unitsHereBonus) {
+        const n = parseInt(unitsHereBonus[1], 10);
+        if (Number.isFinite(n)) mod += n;
+      }
+    }
+    
     if (ctx.battlefieldIndex != null && unit.stunned) {
       const bf = ctx.game.battlefields[ctx.battlefieldIndex];
       const enemy = otherPlayer(unit.controller);
@@ -1011,6 +1024,54 @@ const isMainDeckType = (t: CardType) => t === "Unit" || t === "Spell" || t === "
 const isDuelBattlefieldCount = 2;
 const duelVictoryScore = 8; // Duel victory score (mode of play).
 const isMighty = (unit: CardInstance, game?: GameState) => effectiveMight(unit, { role: "NONE", game }) >= 5;
+
+// Check if a unit just became Mighty and fire appropriate triggers (e.g., Fiora, Grand Duelist)
+// Call this after any action that could increase a unit's might (equipment attach, buff, etc.)
+const checkBecomesMighty = (game: GameState, unit: CardInstance, previousMight: number): void => {
+  const currentMight = effectiveMight(unit, { role: "NONE", game });
+  const wasMighty = previousMight >= 5;
+  const nowMighty = currentMight >= 5;
+  
+  // Only trigger if the unit just became Mighty (wasn't before, is now)
+  if (!wasMighty && nowMighty) {
+    game.log.unshift(`${unit.name} became Mighty (${previousMight} → ${currentMight} might).`);
+    
+    // Check for legend triggers: "When one of your units becomes [Mighty]"
+    // e.g., Fiora, Grand Duelist: "When one of your units becomes [Mighty], you may exhaust me to channel 1 rune exhausted."
+    const legend = game.players[unit.controller].legend;
+    if (legend && !legend.exhausted) {
+      const trig = (legend.ability?.trigger || "").toLowerCase();
+      const eff = legend.ability?.effect_text || "";
+      
+      // Check for "when a unit you control becomes mighty" or "when one of your units becomes mighty"
+      const matchesTrigger = /when (one of your units|a unit you control) becomes \[?mighty\]?/i.test(trig) ||
+                             /when (one of your units|a unit you control) becomes \[?mighty\]?/i.test(eff);
+      
+      if (matchesTrigger && eff) {
+        // Queue the triggered ability
+        const req = inferTargetRequirement(eff);
+        game.chain.push({
+          id: makeId("chain"),
+          controller: unit.controller,
+          kind: "TRIGGERED_ABILITY",
+          label: `Trigger: ${legend.name} (Unit became Mighty)`,
+          effectText: eff,
+          targets: [{ kind: "NONE" }],
+          needsTargets: req.kind !== "NONE",
+          targetRequirement: req,
+          sourceInstanceId: legend.instanceId,
+        });
+        game.state = "CLOSED";
+        game.priorityPlayer = unit.controller;
+        game.log.unshift(`${legend.name} triggered: ${unit.name} became Mighty.`);
+      }
+    }
+    
+    // Also check for other "becomes Mighty" triggers from units/gear in play
+    // e.g., Relentless Storm legend: "When you play a [Mighty] unit, you may exhaust me to channel 1 rune exhausted."
+    // (Note: This is for "play a Mighty unit", not "becomes Mighty", so handled elsewhere)
+  }
+};
 
 const getUnitsInPlay = (game: GameState, player: PlayerId): CardInstance[] => [
   ...game.players[player].base.units,
@@ -1134,24 +1195,27 @@ const choosePowerPaymentDomains = (pool: RunePool, need: number, allowed: Domain
 // ----------------------------- Effect parsing (lightweight) -----------------------------
 
 type TargetRequirement =
-    | { kind: "NONE" }
-    | { kind: "UNIT_ANYWHERE"; count: number; excludeSelf?: boolean }
-    | { kind: "UNIT_HERE_ENEMY"; count: number; excludeSelf?: boolean }
-    | { kind: "UNIT_HERE_FRIENDLY"; count: number; excludeSelf?: boolean }
-    | { kind: "UNIT_FRIENDLY"; count: number; excludeSelf?: boolean }  // Friendly unit anywhere (e.g., "a friendly unit")
-    | { kind: "UNIT_ENEMY"; count: number; excludeSelf?: boolean }     // Enemy unit anywhere (e.g., "an enemy unit")
-    | { kind: "UNIT_FRIENDLY_AND_ENEMY" }  // One friendly unit AND one enemy unit (e.g., Challenge spell)
-    | { kind: "BATTLEFIELD"; count: number };
+    | { kind: "NONE"; optional?: boolean }
+    | { kind: "UNIT_ANYWHERE"; count: number; excludeSelf?: boolean; optional?: boolean }
+    | { kind: "UNIT_HERE_ENEMY"; count: number; excludeSelf?: boolean; optional?: boolean }
+    | { kind: "UNIT_HERE_FRIENDLY"; count: number; excludeSelf?: boolean; optional?: boolean }
+    | { kind: "UNIT_FRIENDLY"; count: number; excludeSelf?: boolean; optional?: boolean }  // Friendly unit anywhere (e.g., "a friendly unit")
+    | { kind: "UNIT_ENEMY"; count: number; excludeSelf?: boolean; optional?: boolean }     // Enemy unit anywhere (e.g., "an enemy unit")
+    | { kind: "UNIT_FRIENDLY_AND_ENEMY"; optional?: boolean }  // One friendly unit AND one enemy unit (e.g., Challenge spell)
+    | { kind: "BATTLEFIELD"; count: number; optional?: boolean };
 
 const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?: boolean }): TargetRequirement => {
   const text = (effectTextRaw || "").toLowerCase();
   if (!text.trim()) return { kind: "NONE" };
 
+  // Detect if this is an optional "may" effect
+  const isOptional = /\byou may\b/.test(text) || /\bmay\s+(ready|buff|kill|move|return|recall|play|draw|channel|exhaust)\b/.test(text);
+
   // Check for "Choose a friendly unit and an enemy unit" pattern (Challenge spell)
   // This needs to come before other checks since it requires TWO targets
   const wantsFriendlyAndEnemy = /choose\s+a\s+friendly\s+unit\s+and\s+an?\s+enemy\s+unit/i.test(text) ||
       /choose\s+an?\s+enemy\s+unit\s+and\s+a\s+friendly\s+unit/i.test(text);
-  if (wantsFriendlyAndEnemy) return { kind: "UNIT_FRIENDLY_AND_ENEMY" };
+  if (wantsFriendlyAndEnemy) return { kind: "UNIT_FRIENDLY_AND_ENEMY", optional: isOptional };
 
   // Heuristic patterns – deliberately conservative.
   const needsUnit =
@@ -1160,7 +1224,7 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
   const needsBattlefieldForAoE =
       /\bat\s+a\s+battlefield\b/.test(text) && /\b(all|each)\s+enemy\s+units?\b/.test(text);
 
-  if (needsBattlefield || needsBattlefieldForAoE) return { kind: "BATTLEFIELD", count: 1 };
+  if (needsBattlefield || needsBattlefieldForAoE) return { kind: "BATTLEFIELD", count: 1, optional: isOptional };
 
   if (!needsUnit) return { kind: "NONE" };
 
@@ -1169,8 +1233,8 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
   const wantsFriendlyHere = /\byour unit here\b/.test(text) || (/\bunit here\b/.test(text) && /\byour\b/.test(text)) ||
       /\bfriendly unit here\b/.test(text);
 
-  if (wantsEnemyHere) return { kind: "UNIT_HERE_ENEMY", count: 1 };
-  if (wantsFriendlyHere) return { kind: "UNIT_HERE_FRIENDLY", count: 1 };
+  if (wantsEnemyHere) return { kind: "UNIT_HERE_ENEMY", count: 1, optional: isOptional };
+  if (wantsFriendlyHere) return { kind: "UNIT_HERE_FRIENDLY", count: 1, optional: isOptional };
 
   // Check for friendly/enemy unit targeting (anywhere)
   // Patterns: "a friendly unit", "another friendly unit", "friendly unit's", "your unit"
@@ -1183,18 +1247,18 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
   // Detect "another" or "other" to exclude source unit from valid targets
   const excludeSelf = /\b(another|other)\s+(friendly|enemy)?\s*(unit|units)\b/.test(text);
 
-  if (wantsFriendly && !wantsEnemy) return { kind: "UNIT_FRIENDLY", count: 1, excludeSelf };
-  if (wantsEnemy && !wantsFriendly) return { kind: "UNIT_ENEMY", count: 1, excludeSelf };
+  if (wantsFriendly && !wantsEnemy) return { kind: "UNIT_FRIENDLY", count: 1, excludeSelf, optional: isOptional };
+  if (wantsEnemy && !wantsFriendly) return { kind: "UNIT_ENEMY", count: 1, excludeSelf, optional: isOptional };
 
   const moveCount = text.match(/\bmove\s+(?:up\s+to\s+)?(\d+|one|two|three|four|five)\s+(?:friendly|your)?\s*units?\b/);
   if (moveCount) {
     const wordToNum: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5 };
     const raw = moveCount[1];
     const n = /^\d+$/.test(raw) ? parseInt(raw, 10) : wordToNum[raw] ?? 1;
-    return { kind: "UNIT_FRIENDLY", count: Number.isFinite(n) ? n : 1 };
+    return { kind: "UNIT_FRIENDLY", count: Number.isFinite(n) ? n : 1, optional: isOptional };
   }
 
-  return { kind: "UNIT_ANYWHERE", count: 1 };
+  return { kind: "UNIT_ANYWHERE", count: 1, optional: isOptional };
 };
 
 const checkGlobalTriggers = (
@@ -3634,7 +3698,11 @@ const resolveEffectText = (
       game.log.unshift(`${controller} spent buffs to ready ${readied} unit(s).`);
       did = true;
     }
-    for (const u of units) u.buffs += 1;
+    for (const u of units) {
+      const prevMight = effectiveMight(u, { role: "NONE", game });
+      u.buffs += 1;
+      checkBecomesMighty(game, u, prevMight);
+    }
     game.log.unshift(`${controller} buffed all friendly units.`);
     did = true;
   }
@@ -3800,8 +3868,11 @@ const resolveEffectText = (
           game.log.unshift(`${u.name} already has a buff.`);
           continue;
         }
+        const prevMight = effectiveMight(u, { role: "NONE", game });
         u.buffs += 1;
         buffedCount++;
+        // Check if unit became Mighty and fire triggers
+        checkBecomesMighty(game, u, prevMight);
       }
       if (buffedCount > 0) {
         if (buffedCount === 1 && targetsToApply.length === 1) {
@@ -3838,7 +3909,11 @@ const resolveEffectText = (
       const loc = locateUnit(game, controller, sourceUnit.instanceId);
       if (loc && loc.zone === "BF" && loc.battlefieldIndex != null) {
         const units = game.battlefields[loc.battlefieldIndex].units[controller].filter((u) => u.instanceId !== sourceUnit.instanceId);
-        for (const u of units) u.buffs += 1;
+        for (const u of units) {
+          const prevMight = effectiveMight(u, { role: "NONE", game });
+          u.buffs += 1;
+          checkBecomesMighty(game, u, prevMight);
+        }
         if (units.length > 0) {
           game.log.unshift(`${controller} buffed ${units.length} other friendly unit(s) there.`);
           did = true;
@@ -6588,6 +6663,9 @@ export default function RiftboundGame() {
       d.log.unshift(`${pid} paid ${cost.energy} energy to equip.`);
     }
     
+    // Calculate might before attaching equipment
+    const previousMight = effectiveMight(unit, { role: "NONE", game: d });
+    
     // Remove gear from base and attach to unit
     p.base.gear.splice(gidx, 1);
     if (!unit.attachedGear) unit.attachedGear = [];
@@ -6595,6 +6673,10 @@ export default function RiftboundGame() {
     
     d.log.unshift(`${gear.name} attached to ${unit.name} (+${gear.stats?.might || 0} might).`);
     d.pendingEquipChoice = null;
+    
+    // Check if unit became Mighty and fire triggers (e.g., Fiora, Grand Duelist)
+    checkBecomesMighty(d, unit, previousMight);
+    
     return true;
   };
 
@@ -9103,9 +9185,12 @@ export default function RiftboundGame() {
           if (units.length > 0) {
             // Auto-attach to first available unit (player can choose via Weaponmaster-style UI if needed)
             const targetUnit = units[0];
+            const previousMight = effectiveMight(targetUnit, { role: "NONE", game: d });
             if (!targetUnit.attachedGear) targetUnit.attachedGear = [];
             targetUnit.attachedGear.push(card);
             d.log.unshift(`${card.name} (Quick-Draw) auto-attached to ${targetUnit.name} (+${card.stats?.might || 0} might).`);
+            // Check if unit became Mighty and fire triggers
+            checkBecomesMighty(d, targetUnit, previousMight);
           } else {
             // No units to attach to, goes to base
             p.base.gear.push(card);
@@ -9766,6 +9851,37 @@ export default function RiftboundGame() {
             ) : null}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+              {/* Decline button for optional 'may' effects */}
+              {req.optional && viewerId === item.controller && canActAs(item.controller) ? (
+                <button
+                    onClick={() => {
+                      // Decline the optional effect - set targets to NONE and confirm
+                      setPendingTargets([{ kind: "NONE" }]);
+                      // Directly confirm with no target
+                      if (!g || !pendingChainChoice) return;
+                      const d = structuredClone(g);
+                      const chainItem = d.chain.find((x) => x.id === pendingChainChoice.chainItemId);
+                      if (chainItem) {
+                        chainItem.targets = [{ kind: "NONE" }];
+                        chainItem.needsTargets = false;
+                        d.log.unshift(`${item.controller} declined the optional effect.`);
+                      }
+                      setGame(d);
+                      setPendingChainChoice(null);
+                      setPendingTargets([{ kind: "NONE" }]);
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #6b7280",
+                      background: "#4b5563",
+                      color: "white",
+                      cursor: "pointer",
+                    }}
+                >
+                  Decline (No Target)
+                </button>
+              ) : null}
               <button
                   onClick={confirmChainChoice}
                   disabled={!canConfirm}
@@ -11185,6 +11301,8 @@ export default function RiftboundGame() {
                               // Equip the gear to the unit
                               const unit = locateUnit(g, choice.unitOwner, choice.unitInstanceId)?.unit;
                               if (unit && gear) {
+                                // Calculate might before attaching
+                                const previousMight = effectiveMight(unit, { role: "NONE", game: g });
                                 // Remove gear from hand or base
                                 const handIdx = p.hand.findIndex(c => c.instanceId === gear.instanceId);
                                 if (handIdx >= 0) p.hand.splice(handIdx, 1);
@@ -11196,6 +11314,8 @@ export default function RiftboundGame() {
                                 if (!unit.attachedGear) unit.attachedGear = [];
                                 unit.attachedGear.push(gear);
                                 g.log.unshift(`${gear.name} equipped to ${unit.name} (Weaponmaster).`);
+                                // Check if unit became Mighty and fire triggers
+                                checkBecomesMighty(g, unit, previousMight);
                               }
                               g.pendingWeaponmasterChoice = null;
                               setGame({ ...g });
