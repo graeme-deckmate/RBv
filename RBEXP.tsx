@@ -5840,7 +5840,13 @@ export default function RiftboundGame() {
     if (!ex) return null;
 
     // Everything before "exhaust:" is treated as an activation cost (e.g. "1 energy,").
-    const costPart = pickLine.slice(0, ex.index).trim();
+    // For patterns like "[1], [T]:", the cost is embedded in the matched pattern itself,
+    // so we include both the text before the match AND the matched text (minus the [T]: part)
+    const beforeMatch = pickLine.slice(0, ex.index).trim();
+    const matchedText = ex[0];
+    // Extract costs from the matched pattern (e.g., "[1], [T]:" -> "[1], ")
+    const costFromMatch = matchedText.replace(/\[t\]\s*:/i, "").replace(/\[e\]\s*:/i, "").replace(/\bexhaust\b\s*:/i, "").trim();
+    const costPart = (beforeMatch + " " + costFromMatch).trim();
 
     const cost: LegendActivatedParse["cost"] = {
       energy: 0,
