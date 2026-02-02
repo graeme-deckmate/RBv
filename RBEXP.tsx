@@ -220,6 +220,7 @@ interface PlayerState {
   scoredBattlefieldsThisTurn: number[]; // indices scored by this player this turn (630)
   discardedThisTurn: number;
   enemyUnitsDiedThisTurn: number;
+  sealExhaustedThisTurn: boolean; // Prevents auto-payer from recycling runes when Seal was used
 
   // Mulligan (setup)
   mulliganSelectedIds: string[];
@@ -2504,8 +2505,11 @@ const buildAutoPayPlan = (
       powerDomainsAllowed: Domain[];
       additionalPowerByDomain: Partial<Record<Domain, number>>;
       additionalPowerAny: number;
-    }
+    },
+    opts?: { sealExhaustedThisTurn?: boolean }
 ): AutoPayPlan | null => {
+  // If a Seal was exhausted this turn, prevent recycling runes (Seals are meant as an alternative to recycling)
+  const noRecycle = opts?.sealExhaustedThisTurn ?? false;
   // Already affordable with existing pool
   if (canAffordWithPool(pool, spec)) {
     return {
@@ -2542,6 +2546,9 @@ const buildAutoPayPlan = (
 
   for (let mask = 0; mask < maxMask; mask++) {
     const recycleCount = popcount(mask);
+
+    // If Seal was exhausted, only allow mask=0 (no recycling)
+    if (noRecycle && mask !== 0) continue;
 
     // quick pruning: if we already have a plan with fewer recycles, skip
     if (best && recycleCount > best.score[0]) continue;
@@ -3495,6 +3502,7 @@ const resolveEffectText = (
 // --------------------- Return / Kill / Banish ---------------------
   if (effectMentionsReturn(text)) {
     let moved = 0;
+    const returnedOwners = new Set<PlayerId>();
 
     forEachSelectedUnit((u, t, loc) => {
       if (loc.zone !== "BF") return; // Return effects in this emulator assume "return ... to base" from a battlefield.
@@ -3502,13 +3510,43 @@ const resolveEffectText = (
       if (!removed) return;
       removed.isReady = false;
       game.players[t.owner].base.units.push(removed);
+      returnedOwners.add(t.owner);
       moved += 1;
     });
+    
+    // Handle "return to hand" variant
+    const returnToHand = /return.*to.*owner's hand|return.*to.*hand/i.test(text);
+    if (returnToHand && moved === 0) {
+      // Try returning to hand instead of base
+      forEachSelectedUnit((u, t, loc) => {
+        const removed = removeUnitFromWherever(game, t.owner, u.instanceId);
+        if (!removed) return;
+        game.players[t.owner].hand.push(removed);
+        returnedOwners.add(t.owner);
+        moved += 1;
+      });
+    }
 
     if (moved > 0) {
-      if (moved === 1 && selectedUnits.length === 1) game.log.unshift(`${selectedUnits[0].name} returned to Base.`);
-      else game.log.unshift(`${controller} returned ${moved} unit(s) to Base.`);
+      if (returnToHand) {
+        if (moved === 1 && selectedUnits.length === 1) game.log.unshift(`${selectedUnits[0].name} returned to hand.`);
+        else game.log.unshift(`${controller} returned ${moved} unit(s) to hand.`);
+      } else {
+        if (moved === 1 && selectedUnits.length === 1) game.log.unshift(`${selectedUnits[0].name} returned to Base.`);
+        else game.log.unshift(`${controller} returned ${moved} unit(s) to Base.`);
+      }
       did = true;
+      
+      // Handle "its owner channels N rune(s) exhausted" effect (e.g., Retreat)
+      const channelExhaustedMatch = lower.match(/its\s+owner\s+channels?\s+(\d+)\s+runes?\s+exhausted/i);
+      if (channelExhaustedMatch) {
+        const channelCount = parseInt(channelExhaustedMatch[1], 10);
+        if (Number.isFinite(channelCount) && channelCount > 0) {
+          for (const owner of returnedOwners) {
+            channelRunesExhausted(game, owner, channelCount);
+          }
+        }
+      }
     } else if (isUpTo) {
       // Valid: "up to" effects may choose 0 targets (or no battlefield target existed).
       did = true;
@@ -3551,10 +3589,36 @@ const resolveEffectText = (
     }
 
     if (killedMarked > 0) {
+      // Check for "its controller draws N" pattern before cleanup
+      const controllerDrawsMatch = lower.match(/its\s+controller\s+draws\s+(\d+)/i);
+      const killedUnitOwners = new Set<PlayerId>();
+      if (selectedUnits.length > 0) {
+        for (const u of selectedUnits) killedUnitOwners.add(u.owner);
+      } else if (unitTarget) {
+        killedUnitOwners.add(unitTarget.owner);
+      }
+      
       cleanupStateBased(game);
       if (killedMarked === 1 && unitTarget) game.log.unshift(`${unitTarget.name} was killed.`);
       else game.log.unshift(`${controller} killed ${killedMarked} unit(s).`);
       did = true;
+      
+      // Handle "its controller draws N" effect (e.g., Hidden Blade)
+      if (controllerDrawsMatch) {
+        const drawCount = parseInt(controllerDrawsMatch[1], 10);
+        if (Number.isFinite(drawCount) && drawCount > 0) {
+          for (const owner of killedUnitOwners) {
+            for (let i = 0; i < drawCount; i++) {
+              const drawn = game.players[owner].mainDeck.shift();
+              if (drawn) {
+                game.players[owner].hand.push(drawn);
+              }
+            }
+            game.log.unshift(`${owner} (controller of killed unit) draws ${drawCount}.`);
+          }
+        }
+      }
+      
       if (ctx.sourceCardType === "Spell") {
         queueTriggersForEvent(
             game,
@@ -4579,6 +4643,7 @@ export default function RiftboundGame() {
         scoredBattlefieldsThisTurn: [],
         discardedThisTurn: 0,
         enemyUnitsDiedThisTurn: 0,
+        sealExhaustedThisTurn: false,
         mulliganSelectedIds: [],
         mulliganDone: false,
       },
@@ -4601,6 +4666,7 @@ export default function RiftboundGame() {
         scoredBattlefieldsThisTurn: [],
         discardedThisTurn: 0,
         enemyUnitsDiedThisTurn: 0,
+        sealExhaustedThisTurn: false,
         mulliganSelectedIds: [],
         mulliganDone: false,
       },
@@ -4796,6 +4862,7 @@ export default function RiftboundGame() {
           scoredBattlefieldsThisTurn: [],
           discardedThisTurn: 0,
           enemyUnitsDiedThisTurn: 0,
+          sealExhaustedThisTurn: false,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -4818,6 +4885,7 @@ export default function RiftboundGame() {
           scoredBattlefieldsThisTurn: [],
           discardedThisTurn: 0,
           enemyUnitsDiedThisTurn: 0,
+          sealExhaustedThisTurn: false,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -4992,6 +5060,7 @@ export default function RiftboundGame() {
           scoredBattlefieldsThisTurn: [],
           discardedThisTurn: 0,
           enemyUnitsDiedThisTurn: 0,
+          sealExhaustedThisTurn: false,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -5014,6 +5083,7 @@ export default function RiftboundGame() {
           scoredBattlefieldsThisTurn: [],
           discardedThisTurn: 0,
           enemyUnitsDiedThisTurn: 0,
+          sealExhaustedThisTurn: false,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -5381,6 +5451,8 @@ export default function RiftboundGame() {
       d.players.P2.discardedThisTurn = 0;
       d.players.P1.enemyUnitsDiedThisTurn = 0;
       d.players.P2.enemyUnitsDiedThisTurn = 0;
+      d.players.P1.sealExhaustedThisTurn = false;
+      d.players.P2.sealExhaustedThisTurn = false;
       for (const pid of ["P1", "P2"] as PlayerId[]) {
         for (const u of getUnitsInPlay(d, pid)) {
           u.moveCountThisTurn = 0;
@@ -5667,6 +5739,7 @@ export default function RiftboundGame() {
       if (amt <= 0) return false;
       gear.isReady = false;
       p.runePool.energy += amt;
+      p.sealExhaustedThisTurn = true; // Prevent auto-payer from recycling runes
       d.log.unshift(`${pid} exhausted ${gear.name} to add ${amt} energy.`);
       return true;
     }
@@ -5688,6 +5761,7 @@ export default function RiftboundGame() {
         p.runePool.power[dom] += amt;
         d.log.unshift(`${pid} exhausted ${gear.name} to add ${amt} ${dom} power.`);
       }
+      p.sealExhaustedThisTurn = true; // Prevent auto-payer from recycling runes
       return true;
     }
 
@@ -5702,6 +5776,7 @@ export default function RiftboundGame() {
       const dom = doms[0] || p.domains[0] || "Fury";
       gear.isReady = false;
       p.runePool.power[dom] += amt;
+      p.sealExhaustedThisTurn = true; // Prevent auto-payer from recycling runes
       d.log.unshift(`${pid} exhausted ${gear.name} to add ${amt} ${dom} power (any-domain add).`);
       return true;
     }
@@ -5713,6 +5788,7 @@ export default function RiftboundGame() {
       const dom = doms[0] || p.domains[0] || "Fury";
       gear.isReady = false;
       p.runePool.power[dom] += 1;
+      p.sealExhaustedThisTurn = true; // Prevent auto-payer from recycling runes
       d.log.unshift(`${pid} exhausted ${gear.name} to add 1 ${dom} power (fallback parse).`);
       return true;
     }
@@ -6370,7 +6446,7 @@ export default function RiftboundGame() {
         powerDomainsAllowed: anyDomains,
         additionalPowerByDomain: {},
         additionalPowerAny: 1,
-      });
+      }, { sealExhaustedThisTurn: p.sealExhaustedThisTurn });
       if (plan && Object.keys(plan.runeUses).length > 0) {
         applyAutoPayPlan(d, pid, plan);
         d.log.unshift(`${pid} auto-paid the Hide cost.`);
@@ -6647,7 +6723,7 @@ export default function RiftboundGame() {
         powerDomainsAllowed,
         additionalPowerByDomain: extraPowerByDomain,
         additionalPowerAny: deflectTax,
-      });
+      }, { sealExhaustedThisTurn: p.sealExhaustedThisTurn });
       if (plan && Object.keys(plan.runeUses).length > 0) {
         applyAutoPayPlan(d, pid, plan);
         d.log.unshift(`${pid} auto-paid runes for ${card.name}.`);
@@ -9437,7 +9513,7 @@ export default function RiftboundGame() {
                             powerDomainsAllowed: domainsAllowed,
                             additionalPowerByDomain: {},
                             additionalPowerAny: 0,
-                          });
+                          }, { sealExhaustedThisTurn: meState.sealExhaustedThisTurn });
 
                           if (plan) setHoverPayPlan({ cardInstanceId: c.instanceId, plan });
                           else setHoverPayPlan(null);
@@ -9556,7 +9632,6 @@ export default function RiftboundGame() {
 
     return (
         <div className="rb-grid">
-          <MulliganBanner />
           <div className="rb-panel">
             <div className="rb-panelTitle">Preview</div>
             {renderPreview()}
@@ -9647,9 +9722,20 @@ export default function RiftboundGame() {
           <div className="rb-panel">
             <div className="rb-panelTitle">Actions</div>
 
-            <button className="rb-bigButton" disabled={!canAdvanceStep} onClick={() => nextStep()}>
-              {g.step === "ACTION" ? "End Turn" : "Next Step"}
-            </button>
+            {showMulliganUI ? (
+              <button
+                className="rb-bigButton"
+                style={{ background: meState.mulliganDone ? 'rgba(90, 200, 130, 0.3)' : 'linear-gradient(135deg, rgba(80, 160, 255, 0.35) 0%, rgba(60, 130, 220, 0.35) 100%)', borderColor: meState.mulliganDone ? 'rgba(90, 200, 130, 0.6)' : 'rgba(130, 210, 255, 0.6)' }}
+                disabled={meState.mulliganDone}
+                onClick={() => confirmMulligan(me)}
+              >
+                {meState.mulliganDone ? `✓ Mulligan Confirmed` : `Confirm Mulligan (${meState.mulliganSelectedIds.length}/2 selected)`}
+              </button>
+            ) : (
+              <button className="rb-bigButton" disabled={!canAdvanceStep} onClick={() => nextStep()}>
+                {g.step === "ACTION" ? "End Turn" : "Next Step"}
+              </button>
+            )}
 
             <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
               <button className="rb-miniButton" disabled={!canPass || !canActAs(me)} onClick={() => passPriority(me)}>
