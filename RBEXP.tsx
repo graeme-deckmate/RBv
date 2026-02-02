@@ -136,6 +136,7 @@ interface CardInstance extends CardData {
   createdTurn: number;
   moveCountThisTurn: number;
   killOnDamageUntilTurn?: number;
+  preventNextDamageUntilTurn?: number; // Counter Strike: "The next time that unit would be dealt damage this turn, prevent it"
   deathReplacement?: {
     untilTurn: number;
     recallExhausted: boolean;
@@ -3639,6 +3640,17 @@ const resolveEffectText = (
     }
   }
 
+  // Counter Strike: "The next time that unit would be dealt damage this turn, prevent it"
+  if (/next time.*would be dealt damage this turn.*prevent/i.test(text) || /prevent.*next.*damage.*this turn/i.test(text)) {
+    forEachSelectedUnit((u, t) => {
+      u.preventNextDamageUntilTurn = game.turnNumber;
+    });
+    if (selectedUnits.length > 0) {
+      game.log.unshift(`${controller} set damage prevention on ${selectedUnits.length} unit(s) this turn.`);
+      did = true;
+    }
+  }
+
   if (/\bnext time it dies this turn\b/i.test(text)) {
     const payDom = (() => {
       const m = lower.match(/\bpay\s+1\s+([a-z]+)\s+rune\b/);
@@ -3844,6 +3856,12 @@ const resolveEffectText = (
       // Unyielding Spirit: "Prevent all spell and ability damage this turn"
       if (game.players[u.owner].preventSpellAbilityDamageThisTurn) {
         game.log.unshift(`${u.name} prevented damage (spell/ability damage prevented this turn).`);
+        return;
+      }
+      // Counter Strike: "The next time that unit would be dealt damage this turn, prevent it"
+      if (u.preventNextDamageUntilTurn && u.preventNextDamageUntilTurn >= game.turnNumber) {
+        u.preventNextDamageUntilTurn = 0; // One-time use
+        game.log.unshift(`${u.name} prevented damage (Counter Strike).`);
         return;
       }
       u.damage += dmg;
@@ -4097,6 +4115,12 @@ const assignCombatDamageAuto = (game: GameState, battlefieldIndex: number, attac
       if (remaining <= 0) break;
       if (unitIgnoresDamageThisTurn(u)) {
         game.log.unshift(`${u.name} ignored combat damage (moved twice this turn).`);
+        continue;
+      }
+      // Counter Strike: "The next time that unit would be dealt damage this turn, prevent it"
+      if (u.preventNextDamageUntilTurn && u.preventNextDamageUntilTurn >= game.turnNumber) {
+        u.preventNextDamageUntilTurn = 0; // One-time use
+        game.log.unshift(`${u.name} prevented combat damage (Counter Strike).`);
         continue;
       }
       const lethal = effectiveMight(u, { role, alone, game, battlefieldIndex });

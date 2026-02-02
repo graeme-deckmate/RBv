@@ -24,9 +24,9 @@ Cards that enter ready based on conditions:
 
 | Card | Condition | Status |
 |------|-----------|--------|
-| **Xin Zhao, Vigilant** | "I enter ready if you have two or more other units in your base." | NOT IMPLEMENTED |
-| **Direwing** | "I enter ready if you control another Dragon." | NOT IMPLEMENTED |
-| **Breakneck Mech** | "I enter ready if you control another Mech." | NOT IMPLEMENTED |
+| **Xin Zhao, Vigilant** | "I enter ready if you have two or more other units in your base." | ✅ IMPLEMENTED |
+| **Direwing** | "I enter ready if you control another Dragon." | ✅ IMPLEMENTED |
+| **Breakneck Mech** | "I enter ready if you control another Mech." | ✅ IMPLEMENTED |
 
 **Implementation Required**: Check condition at play time, set `isReady = true` if condition met.
 
@@ -43,11 +43,11 @@ Cards with dynamic cost reduction:
 | Card | Effect | Status |
 |------|--------|--------|
 | **Noxus Hopeful** | "[Legion] — I cost [2] less." | PARTIAL |
-| **Sky Splitter** | "Energy cost reduced by highest Might among units you control" | NOT IMPLEMENTED |
-| **Rhasa the Sunderer** | "I cost [1] less for each card in your trash." | NOT IMPLEMENTED |
-| **Raging Firebrand** | "Next spell costs [5] less" | NOT IMPLEMENTED |
-| **Eager Apprentice** | "Spells cost [1] less while at battlefield" | NOT IMPLEMENTED |
-| **Herald of Scales** | "Dragons cost [2] less" | NOT IMPLEMENTED |
+| **Sky Splitter** | "Energy cost reduced by highest Might among units you control" | ✅ IMPLEMENTED |
+| **Rhasa the Sunderer** | "I cost [1] less for each card in your trash." | ✅ IMPLEMENTED |
+| **Raging Firebrand** | "Next spell costs [5] less" | ✅ IMPLEMENTED |
+| **Eager Apprentice** | "Spells cost [1] less while at battlefield" | ✅ IMPLEMENTED |
+| **Herald of Scales** | "Dragons cost [2] less" | ✅ IMPLEMENTED |
 
 ### 4. CONDITIONAL_EFFECTS (76 cards)
 
@@ -118,8 +118,8 @@ Most common activated ability format.
 | **[Assault N]** | +N [S] while attacking | IMPLEMENTED |
 | **[Hidden]** | Can be hidden at battlefield | IMPLEMENTED |
 | **[Equip]** | Can attach gear | PARTIAL |
-| **[Weaponmaster]** | Auto-equip when played | NOT IMPLEMENTED |
-| **[Quick-Draw]** | Reaction + attach | NOT IMPLEMENTED |
+| **[Weaponmaster]** | Auto-equip when played | ✅ IMPLEMENTED |
+| **[Quick-Draw]** | Reaction + attach | ✅ ADDED TO KEYWORDS |
 
 ### 8. SPELL_EFFECTS
 
