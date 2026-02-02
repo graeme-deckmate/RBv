@@ -46,7 +46,7 @@ type Step =
 
 type WindowKind = "NONE" | "SHOWDOWN" | "COMBAT";
 
-type CombatStep = "SHOWDOWN" | "DAMAGE" | "RESOLUTION";
+type CombatStep = "SHOWDOWN" | "DAMAGE_ASSIGNMENT" | "DAMAGE" | "RESOLUTION";
 
 type Domain =
     | "Body"
@@ -278,7 +278,10 @@ type EngineAction =
     | { type: "LEGEND_ACTIVATE"; player: PlayerId; targets?: Target[]; autoPay?: boolean }
     | { type: "EQUIP_START"; player: PlayerId; gearInstanceId: string }
     | { type: "EQUIP_CONFIRM"; player: PlayerId; unitInstanceId: string }
-    | { type: "EQUIP_CANCEL"; player: PlayerId };
+    | { type: "EQUIP_CANCEL"; player: PlayerId }
+    | { type: "DAMAGE_ASSIGN"; player: PlayerId; assignment: Record<string, number> }
+    | { type: "DAMAGE_CONFIRM"; player: PlayerId }
+    | { type: "DAMAGE_AUTO_ASSIGN"; player: PlayerId };
 
 interface ChainItem {
   id: string;
@@ -380,6 +383,20 @@ interface GameState {
     gearInstanceId: string;
     gearOwner: PlayerId;
     equipCost: { energy: number; power: number; powerDomain: Domain | "CLASS" };
+  } | null;
+  
+  // Combat damage assignment (manual assignment during DAMAGE_ASSIGNMENT step)
+  pendingDamageAssignment?: {
+    battlefieldIndex: number;
+    attacker: PlayerId;
+    defender: PlayerId;
+    attackerTotalDamage: number;  // Total damage attacker deals to defender's units
+    defenderTotalDamage: number;  // Total damage defender deals to attacker's units
+    // Each player's damage assignment: map of unitInstanceId -> damage assigned
+    attackerAssignment: Record<string, number>;  // Attacker assigns damage to defender's units
+    defenderAssignment: Record<string, number>;  // Defender assigns damage to attacker's units
+    attackerConfirmed: boolean;
+    defenderConfirmed: boolean;
   } | null;
   
   // Delayed triggers that fire on specific events this turn
@@ -6230,13 +6247,58 @@ export default function RiftboundGame() {
     if (d.windowKind === "COMBAT" && d.combat && d.combat.step === "SHOWDOWN") {
       d.passesInRow = 0;
       d.focusPlayer = null;
-      d.log.unshift("Combat showdown ends. Assigning damage...");
       const bfi = d.combat.battlefieldIndex;
       const attacker = d.combat.attacker;
       const defender = d.combat.defender;
-      assignCombatDamageAuto(d, bfi, attacker, defender);
-      d.combat.step = "DAMAGE";
-      resolveCombatResolution(d);
+      const bf = d.battlefields[bfi];
+      
+      const attackerUnits = bf.units[attacker].filter((u) => !u.stunned);
+      const defenderUnits = bf.units[defender].filter((u) => !u.stunned);
+      
+      const attackerAlone = attackerUnits.length === 1;
+      const defenderAlone = defenderUnits.length === 1;
+      const attackerTotalDamage = attackerUnits.reduce(
+          (s, u) => s + effectiveMight(u, { role: "ATTACKER", alone: attackerAlone, game: d, battlefieldIndex: bfi }),
+          0
+      );
+      const defenderTotalDamage = defenderUnits.reduce(
+          (s, u) => s + effectiveMight(u, { role: "DEFENDER", alone: defenderAlone, game: d, battlefieldIndex: bfi }),
+          0
+      );
+      
+      // Check if manual assignment is needed (more than 1 enemy unit to assign to)
+      const attackerNeedsManual = defenderUnits.length > 1 && attackerTotalDamage > 0;
+      const defenderNeedsManual = attackerUnits.length > 1 && defenderTotalDamage > 0;
+      
+      if (attackerNeedsManual || defenderNeedsManual) {
+        // Transition to damage assignment step
+        d.log.unshift("Combat showdown ends. Players assign damage...");
+        d.combat.step = "DAMAGE_ASSIGNMENT";
+        d.pendingDamageAssignment = {
+          battlefieldIndex: bfi,
+          attacker,
+          defender,
+          attackerTotalDamage,
+          defenderTotalDamage,
+          attackerAssignment: {},
+          defenderAssignment: {},
+          attackerConfirmed: !attackerNeedsManual,  // Auto-confirm if only 1 target
+          defenderConfirmed: !defenderNeedsManual,  // Auto-confirm if only 1 target
+        };
+        // If a player doesn't need manual assignment, auto-assign for them
+        if (!attackerNeedsManual && defenderUnits.length === 1 && attackerTotalDamage > 0) {
+          d.pendingDamageAssignment.attackerAssignment[defenderUnits[0].instanceId] = attackerTotalDamage;
+        }
+        if (!defenderNeedsManual && attackerUnits.length === 1 && defenderTotalDamage > 0) {
+          d.pendingDamageAssignment.defenderAssignment[attackerUnits[0].instanceId] = defenderTotalDamage;
+        }
+      } else {
+        // No manual assignment needed, auto-assign
+        d.log.unshift("Combat showdown ends. Assigning damage...");
+        assignCombatDamageAuto(d, bfi, attacker, defender);
+        d.combat.step = "DAMAGE";
+        resolveCombatResolution(d);
+      }
       return true;
     }
 
@@ -6487,6 +6549,262 @@ export default function RiftboundGame() {
     d.log.unshift(`${gear.name} attached to ${unit.name} (+${gear.stats?.might || 0} might).`);
     d.pendingEquipChoice = null;
     return true;
+  };
+
+  // ----------------------------- Combat Damage Assignment -----------------------------
+  
+  const engineDamageAssign = (d: GameState, pid: PlayerId, assignment: Record<string, number>): boolean => {
+    if (!d.pendingDamageAssignment || !d.combat || d.combat.step !== "DAMAGE_ASSIGNMENT") {
+      d.log.unshift("No pending damage assignment.");
+      return false;
+    }
+    
+    const pda = d.pendingDamageAssignment;
+    const isAttacker = pid === pda.attacker;
+    const isDefender = pid === pda.defender;
+    
+    if (!isAttacker && !isDefender) {
+      d.log.unshift("Player not in combat.");
+      return false;
+    }
+    
+    const bf = d.battlefields[pda.battlefieldIndex];
+    const totalDamage = isAttacker ? pda.attackerTotalDamage : pda.defenderTotalDamage;
+    const targetUnits = isAttacker ? bf.units[pda.defender] : bf.units[pda.attacker];
+    const targetUnitIds = new Set(targetUnits.filter(u => !u.stunned).map(u => u.instanceId));
+    
+    // Validate assignment
+    let assignedTotal = 0;
+    for (const [unitId, dmg] of Object.entries(assignment)) {
+      if (!targetUnitIds.has(unitId)) {
+        d.log.unshift(`Invalid target unit: ${unitId}`);
+        return false;
+      }
+      if (dmg < 0) {
+        d.log.unshift("Cannot assign negative damage.");
+        return false;
+      }
+      assignedTotal += dmg;
+    }
+    
+    if (assignedTotal !== totalDamage) {
+      d.log.unshift(`Must assign exactly ${totalDamage} damage (assigned ${assignedTotal}).`);
+      return false;
+    }
+    
+    // Check Tank rule: Tanks must receive damage first
+    const tanks = targetUnits.filter(u => !u.stunned && hasKeyword(u, "Tank"));
+    const nonTanks = targetUnits.filter(u => !u.stunned && !hasKeyword(u, "Tank"));
+    if (tanks.length > 0) {
+      // If there are tanks, non-tanks can only receive damage if all tanks are dead
+      const tankDamage = tanks.reduce((sum, t) => sum + (assignment[t.instanceId] || 0), 0);
+      const tankLethal = tanks.reduce((sum, t) => sum + effectiveMight(t, { role: isAttacker ? "DEFENDER" : "ATTACKER", alone: targetUnits.length === 1, game: d, battlefieldIndex: pda.battlefieldIndex }), 0);
+      const nonTankDamage = nonTanks.reduce((sum, t) => sum + (assignment[t.instanceId] || 0), 0);
+      
+      if (nonTankDamage > 0 && tankDamage < tankLethal) {
+        d.log.unshift("Must assign lethal damage to Tanks before damaging other units.");
+        return false;
+      }
+    }
+    
+    // Store assignment
+    if (isAttacker) {
+      pda.attackerAssignment = assignment;
+    } else {
+      pda.defenderAssignment = assignment;
+    }
+    
+    d.log.unshift(`${pid} assigned ${totalDamage} damage.`);
+    return true;
+  };
+  
+  const engineDamageConfirm = (d: GameState, pid: PlayerId): boolean => {
+    if (!d.pendingDamageAssignment || !d.combat || d.combat.step !== "DAMAGE_ASSIGNMENT") {
+      d.log.unshift("No pending damage assignment.");
+      return false;
+    }
+    
+    const pda = d.pendingDamageAssignment;
+    const isAttacker = pid === pda.attacker;
+    const isDefender = pid === pda.defender;
+    
+    if (!isAttacker && !isDefender) {
+      d.log.unshift("Player not in combat.");
+      return false;
+    }
+    
+    // Check if assignment is complete
+    const totalDamage = isAttacker ? pda.attackerTotalDamage : pda.defenderTotalDamage;
+    const assignment = isAttacker ? pda.attackerAssignment : pda.defenderAssignment;
+    const assignedTotal = Object.values(assignment).reduce((a, b) => a + b, 0);
+    
+    if (assignedTotal !== totalDamage) {
+      d.log.unshift(`Must assign all ${totalDamage} damage before confirming.`);
+      return false;
+    }
+    
+    if (isAttacker) {
+      pda.attackerConfirmed = true;
+    } else {
+      pda.defenderConfirmed = true;
+    }
+    
+    d.log.unshift(`${pid} confirmed damage assignment.`);
+    
+    // If both confirmed, apply damage and proceed
+    if (pda.attackerConfirmed && pda.defenderConfirmed) {
+      applyManualDamageAssignment(d);
+    }
+    
+    return true;
+  };
+  
+  const engineDamageAutoAssign = (d: GameState, pid: PlayerId): boolean => {
+    if (!d.pendingDamageAssignment || !d.combat || d.combat.step !== "DAMAGE_ASSIGNMENT") {
+      d.log.unshift("No pending damage assignment.");
+      return false;
+    }
+    
+    const pda = d.pendingDamageAssignment;
+    const isAttacker = pid === pda.attacker;
+    const isDefender = pid === pda.defender;
+    
+    if (!isAttacker && !isDefender) {
+      d.log.unshift("Player not in combat.");
+      return false;
+    }
+    
+    const bf = d.battlefields[pda.battlefieldIndex];
+    const totalDamage = isAttacker ? pda.attackerTotalDamage : pda.defenderTotalDamage;
+    const targetUnits = isAttacker ? bf.units[pda.defender] : bf.units[pda.attacker];
+    const role: "ATTACKER" | "DEFENDER" = isAttacker ? "DEFENDER" : "ATTACKER";
+    const alone = targetUnits.length === 1;
+    
+    // Auto-assign: Tanks first, then by order, assigning lethal damage
+    const tanks = targetUnits.filter(u => !u.stunned && hasKeyword(u, "Tank"));
+    const rest = targetUnits.filter(u => !u.stunned && !hasKeyword(u, "Tank"));
+    const order = tanks.length > 0 ? [...tanks, ...rest] : [...targetUnits.filter(u => !u.stunned)];
+    
+    const assignment: Record<string, number> = {};
+    let remaining = totalDamage;
+    
+    for (const u of order) {
+      if (remaining <= 0) break;
+      const lethal = effectiveMight(u, { role, alone, game: d, battlefieldIndex: pda.battlefieldIndex });
+      const need = Math.max(0, lethal - u.damage);
+      const assign = Math.min(need, remaining);
+      if (assign > 0) {
+        assignment[u.instanceId] = assign;
+        remaining -= assign;
+      }
+    }
+    
+    // Spill remaining onto last unit
+    if (remaining > 0 && order.length > 0) {
+      const lastId = order[order.length - 1].instanceId;
+      assignment[lastId] = (assignment[lastId] || 0) + remaining;
+    }
+    
+    // Store and confirm
+    if (isAttacker) {
+      pda.attackerAssignment = assignment;
+      pda.attackerConfirmed = true;
+    } else {
+      pda.defenderAssignment = assignment;
+      pda.defenderConfirmed = true;
+    }
+    
+    d.log.unshift(`${pid} auto-assigned ${totalDamage} damage.`);
+    
+    // If both confirmed, apply damage and proceed
+    if (pda.attackerConfirmed && pda.defenderConfirmed) {
+      applyManualDamageAssignment(d);
+    }
+    
+    return true;
+  };
+  
+  const applyManualDamageAssignment = (d: GameState): void => {
+    if (!d.pendingDamageAssignment || !d.combat) return;
+    
+    const pda = d.pendingDamageAssignment;
+    const bf = d.battlefields[pda.battlefieldIndex];
+    
+    // Apply attacker's damage to defender's units
+    for (const [unitId, dmg] of Object.entries(pda.attackerAssignment)) {
+      const unit = bf.units[pda.defender].find(u => u.instanceId === unitId);
+      if (unit && dmg > 0) {
+        if (unitIgnoresDamageThisTurn(unit)) {
+          d.log.unshift(`${unit.name} ignored combat damage (moved twice this turn).`);
+          continue;
+        }
+        if (unit.preventNextDamageUntilTurn && unit.preventNextDamageUntilTurn >= d.turnNumber) {
+          unit.preventNextDamageUntilTurn = 0;
+          d.log.unshift(`${unit.name} prevented combat damage (Counter Strike).`);
+          continue;
+        }
+        unit.damage += dmg;
+        if (unit.killOnDamageUntilTurn && unit.killOnDamageUntilTurn >= d.turnNumber && unit.damage > 0) {
+          unit.damage = 999;
+          unit.killOnDamageUntilTurn = 0;
+        } else if (damageKillEffectActive(d)) {
+          unit.damage = 999;
+        }
+      }
+    }
+    
+    // Apply defender's damage to attacker's units
+    for (const [unitId, dmg] of Object.entries(pda.defenderAssignment)) {
+      const unit = bf.units[pda.attacker].find(u => u.instanceId === unitId);
+      if (unit && dmg > 0) {
+        if (unitIgnoresDamageThisTurn(unit)) {
+          d.log.unshift(`${unit.name} ignored combat damage (moved twice this turn).`);
+          continue;
+        }
+        if (unit.preventNextDamageUntilTurn && unit.preventNextDamageUntilTurn >= d.turnNumber) {
+          unit.preventNextDamageUntilTurn = 0;
+          d.log.unshift(`${unit.name} prevented combat damage (Counter Strike).`);
+          continue;
+        }
+        unit.damage += dmg;
+        if (unit.killOnDamageUntilTurn && unit.killOnDamageUntilTurn >= d.turnNumber && unit.damage > 0) {
+          unit.damage = 999;
+          unit.killOnDamageUntilTurn = 0;
+        } else if (damageKillEffectActive(d)) {
+          unit.damage = 999;
+        }
+      }
+    }
+    
+    // Calculate excess damage for each side
+    const attackerExcess = Object.entries(pda.attackerAssignment).reduce((sum, [unitId, dmg]) => {
+      const unit = bf.units[pda.defender].find(u => u.instanceId === unitId);
+      if (!unit) return sum;
+      const lethal = effectiveMight(unit, { role: "DEFENDER", alone: bf.units[pda.defender].length === 1, game: d, battlefieldIndex: pda.battlefieldIndex });
+      return sum + Math.max(0, dmg - lethal);
+    }, 0);
+    
+    const defenderExcess = Object.entries(pda.defenderAssignment).reduce((sum, [unitId, dmg]) => {
+      const unit = bf.units[pda.attacker].find(u => u.instanceId === unitId);
+      if (!unit) return sum;
+      const lethal = effectiveMight(unit, { role: "ATTACKER", alone: bf.units[pda.attacker].length === 1, game: d, battlefieldIndex: pda.battlefieldIndex });
+      return sum + Math.max(0, dmg - lethal);
+    }, 0);
+    
+    d.lastCombatExcessDamage = {
+      [pda.attacker]: attackerExcess,
+      [pda.defender]: defenderExcess,
+    } as Record<PlayerId, number>;
+    d.lastCombatExcessDamageTurn = d.turnNumber;
+    
+    d.log.unshift(
+        `Combat damage applied at Battlefield ${pda.battlefieldIndex + 1}: ${pda.attacker} dealt ${pda.attackerTotalDamage}, ${pda.defender} dealt ${pda.defenderTotalDamage}.`
+    );
+    
+    // Clear pending and proceed to DAMAGE step
+    d.pendingDamageAssignment = null;
+    d.combat.step = "DAMAGE";
+    resolveCombatResolution(d);
   };
 
   type LegendActivatedParse = {
@@ -6895,6 +7213,15 @@ export default function RiftboundGame() {
         d.pendingEquipChoice = null;
         d.log.unshift(`${action.player} cancelled equipment attachment.`);
         return;
+      case "DAMAGE_ASSIGN":
+        engineDamageAssign(d, action.player, action.assignment);
+        return;
+      case "DAMAGE_CONFIRM":
+        engineDamageConfirm(d, action.player);
+        return;
+      case "DAMAGE_AUTO_ASSIGN":
+        engineDamageAutoAssign(d, action.player);
+        return;
       default:
         return;
     }
@@ -7001,6 +7328,20 @@ export default function RiftboundGame() {
 
       case "EQUIP_CANCEL": {
         return { type: "EQUIP_CANCEL", player: p } as EngineAction;
+      }
+
+      case "DAMAGE_ASSIGN": {
+        const assignment = (actionAny as any).assignment;
+        if (!assignment || typeof assignment !== "object") return null;
+        return { type: "DAMAGE_ASSIGN", player: p, assignment } as EngineAction;
+      }
+
+      case "DAMAGE_CONFIRM": {
+        return { type: "DAMAGE_CONFIRM", player: p } as EngineAction;
+      }
+
+      case "DAMAGE_AUTO_ASSIGN": {
+        return { type: "DAMAGE_AUTO_ASSIGN", player: p } as EngineAction;
       }
 
       default:
@@ -8085,6 +8426,16 @@ export default function RiftboundGame() {
         continue;
       }
 
+      // Handle DAMAGE_ASSIGNMENT step in simulation (auto-assign for both players)
+      if (sim.windowKind === "COMBAT" && sim.combat && sim.combat.step === "DAMAGE_ASSIGNMENT" && sim.pendingDamageAssignment) {
+        // Auto-assign for both players
+        engineDamageAutoAssign(sim, sim.pendingDamageAssignment.attacker);
+        if (sim.pendingDamageAssignment) { // May have been cleared if both confirmed
+          engineDamageAutoAssign(sim, sim.pendingDamageAssignment.defender);
+        }
+        continue;
+      }
+
       // If a combat damage step is hanging around, resolveCombatResolution already clears it, but guard anyway.
       if (sim.windowKind === "COMBAT" && sim.combat && sim.combat.step === "DAMAGE") {
         resolveCombatResolution(sim);
@@ -8220,20 +8571,43 @@ export default function RiftboundGame() {
       const intent = aiChooseIntent(snap, pid, diff);
       // Only act if the intent is actually legal right now.
       if (!intent) continue;
-      // Gate: mulligan, or controlled chain target, or priority, or turn-player advance.
+      // Gate: mulligan, or controlled chain target, or priority, or turn-player advance, or damage assignment.
       const top = snap.chain[snap.chain.length - 1];
       const canAdvance = snap.chain.length === 0 && snap.windowKind === "NONE" && snap.state === "OPEN";
       const isMyMulligan = snap.step === "MULLIGAN" && !snap.players[pid].mulliganDone;
       const isMyChainChoice = !!top && top.needsTargets && top.controller === pid;
       const isMyPriority = snap.priorityPlayer === pid;
       const isMyTurnAdvance = snap.turnPlayer === pid && canAdvance && snap.step !== "GAME_OVER";
-      if (isMyMulligan || isMyChainChoice || isMyPriority || isMyTurnAdvance) {
+      const isMyDamageAssignment = snap.pendingDamageAssignment && 
+        ((pid === snap.pendingDamageAssignment.attacker && !snap.pendingDamageAssignment.attackerConfirmed) ||
+         (pid === snap.pendingDamageAssignment.defender && !snap.pendingDamageAssignment.defenderConfirmed));
+      if (isMyMulligan || isMyChainChoice || isMyPriority || isMyTurnAdvance || isMyDamageAssignment) {
         actor = pid;
         break;
       }
     }
 
     if (!actor) return;
+    
+    // Handle AI damage assignment immediately
+    const pda = snap.pendingDamageAssignment;
+    if (pda && ((actor === pda.attacker && !pda.attackerConfirmed) || (actor === pda.defender && !pda.defenderConfirmed))) {
+      const delay = Math.max(50, Math.min(2500, aiByPlayer[actor]?.thinkMs || 650));
+      aiTimerRef.current = window.setTimeout(() => {
+        aiTimerRef.current = null;
+        const latest = gameRef.current;
+        if (!latest || !latest.pendingDamageAssignment) return;
+        if (!aiByPlayer[actor]?.enabled) return;
+        if (aiPaused) return;
+        dispatchEngineAction({ type: "DAMAGE_AUTO_ASSIGN", player: actor });
+      }, delay);
+      return () => {
+        if (aiTimerRef.current) {
+          window.clearTimeout(aiTimerRef.current);
+          aiTimerRef.current = null;
+        }
+      };
+    }
 
     const delay = Math.max(50, Math.min(2500, aiByPlayer[actor]?.thinkMs || 650));
     aiTimerRef.current = window.setTimeout(() => {
@@ -9552,6 +9926,162 @@ export default function RiftboundGame() {
             </div>
           </div>
         </div>
+    );
+  };
+
+  // State for damage assignment UI
+  const [damageAssignmentState, setDamageAssignmentState] = useState<Record<string, number>>({});
+
+  const renderDamageAssignmentModal = () => {
+    if (!g || !g.pendingDamageAssignment || !g.combat || g.combat.step !== "DAMAGE_ASSIGNMENT") return null;
+    
+    const pda = g.pendingDamageAssignment;
+    const bf = g.battlefields[pda.battlefieldIndex];
+    
+    // Determine which player(s) need to assign damage
+    const viewerIsAttacker = viewerId === pda.attacker;
+    const viewerIsDefender = viewerId === pda.defender;
+    
+    if (!viewerIsAttacker && !viewerIsDefender) {
+      // Viewer is spectating
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
+          <div style={{ width: 500, background: "#111827", border: "1px solid #374151", borderRadius: 12, padding: 16 }}>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>Combat Damage Assignment</div>
+            <div style={{ marginTop: 10, fontSize: 14 }}>Waiting for players to assign damage...</div>
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.8 }}>
+              {pda.attacker}: {pda.attackerConfirmed ? "Confirmed" : "Assigning..."}<br/>
+              {pda.defender}: {pda.defenderConfirmed ? "Confirmed" : "Assigning..."}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    const isAttacker = viewerIsAttacker;
+    const myTotalDamage = isAttacker ? pda.attackerTotalDamage : pda.defenderTotalDamage;
+    const myConfirmed = isAttacker ? pda.attackerConfirmed : pda.defenderConfirmed;
+    const opponentConfirmed = isAttacker ? pda.defenderConfirmed : pda.attackerConfirmed;
+    const targetUnits = isAttacker ? bf.units[pda.defender].filter(u => !u.stunned) : bf.units[pda.attacker].filter(u => !u.stunned);
+    const role: "ATTACKER" | "DEFENDER" = isAttacker ? "DEFENDER" : "ATTACKER";
+    const alone = targetUnits.length === 1;
+    
+    // Calculate assigned total
+    const assignedTotal = Object.values(damageAssignmentState).reduce((a, b) => a + b, 0);
+    const remaining = myTotalDamage - assignedTotal;
+    
+    // Check if already confirmed
+    if (myConfirmed) {
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
+          <div style={{ width: 500, background: "#111827", border: "1px solid #374151", borderRadius: 12, padding: 16 }}>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>Combat Damage Assignment</div>
+            <div style={{ marginTop: 10, fontSize: 14 }}>You have confirmed your damage assignment.</div>
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.8 }}>
+              Waiting for opponent... {opponentConfirmed ? "(Confirmed)" : "(Assigning...)"}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Identify tanks
+    const tanks = targetUnits.filter(u => hasKeyword(u, "Tank"));
+    const hasTanks = tanks.length > 0;
+    
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}>
+        <div style={{ width: 600, maxWidth: "95vw", background: "#111827", border: "1px solid #374151", borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>Assign Combat Damage</div>
+          <div style={{ marginTop: 8, fontSize: 14, opacity: 0.9 }}>
+            You deal <b>{myTotalDamage}</b> damage. Assign it to enemy units.
+          </div>
+          <div style={{ marginTop: 4, fontSize: 12, color: remaining === 0 ? "#10b981" : "#f59e0b" }}>
+            Remaining: {remaining} / {myTotalDamage}
+          </div>
+          {hasTanks && (
+            <div style={{ marginTop: 4, fontSize: 12, color: "#ef4444" }}>
+              Note: Tanks must receive lethal damage before other units can be damaged.
+            </div>
+          )}
+          
+          <div style={{ marginTop: 12, maxHeight: 300, overflowY: "auto" }}>
+            {targetUnits.map((u) => {
+              const lethal = effectiveMight(u, { role, alone, game: g, battlefieldIndex: pda.battlefieldIndex });
+              const isTank = hasKeyword(u, "Tank");
+              const assigned = damageAssignmentState[u.instanceId] || 0;
+              
+              return (
+                <div key={u.instanceId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "1px solid #374151" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>
+                      {u.name} {isTank && <span style={{ color: "#f59e0b" }}>[Tank]</span>}
+                    </div>
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>
+                      Might: {lethal} (Lethal: {lethal})
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      style={{ width: 30, height: 30, borderRadius: 6, border: "1px solid #374151", background: "#1f2937", color: "white", cursor: "pointer" }}
+                      onClick={() => setDamageAssignmentState(prev => ({ ...prev, [u.instanceId]: Math.max(0, (prev[u.instanceId] || 0) - 1) }))}
+                    >-</button>
+                    <input
+                      type="number"
+                      min={0}
+                      value={assigned}
+                      onChange={(e) => {
+                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                        setDamageAssignmentState(prev => ({ ...prev, [u.instanceId]: val }));
+                      }}
+                      style={{ width: 60, textAlign: "center", padding: 4, borderRadius: 6, border: "1px solid #374151", background: "#1f2937", color: "white" }}
+                    />
+                    <button
+                      style={{ width: 30, height: 30, borderRadius: 6, border: "1px solid #374151", background: "#1f2937", color: "white", cursor: "pointer" }}
+                      onClick={() => setDamageAssignmentState(prev => ({ ...prev, [u.instanceId]: (prev[u.instanceId] || 0) + 1 }))}
+                    >+</button>
+                    <button
+                      style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #374151", background: "#374151", color: "white", cursor: "pointer", fontSize: 11 }}
+                      onClick={() => setDamageAssignmentState(prev => ({ ...prev, [u.instanceId]: lethal }))}
+                    >Lethal</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button
+              style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #374151", background: "#374151", color: "white", cursor: "pointer" }}
+              onClick={() => {
+                setDamageAssignmentState({});
+                dispatchEngineAction({ type: "DAMAGE_AUTO_ASSIGN", player: viewerId });
+              }}
+            >
+              Auto-Assign
+            </button>
+            <button
+              disabled={remaining !== 0}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid #374151",
+                background: remaining === 0 ? "#10b981" : "#374151",
+                color: "white",
+                cursor: remaining === 0 ? "pointer" : "not-allowed",
+              }}
+              onClick={() => {
+                if (remaining !== 0) return;
+                dispatchEngineAction({ type: "DAMAGE_ASSIGN", player: viewerId, assignment: damageAssignmentState });
+                dispatchEngineAction({ type: "DAMAGE_CONFIRM", player: viewerId });
+                setDamageAssignmentState({});
+              }}
+            >
+              Confirm Assignment
+            </button>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -13346,6 +13876,7 @@ export default function RiftboundGame() {
 
         {renderChainChoiceModal()}
         {renderPlayModal()}
+        {renderDamageAssignmentModal()}
       </div>
   );
 }
