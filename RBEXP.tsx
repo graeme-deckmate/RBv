@@ -1049,11 +1049,11 @@ const choosePowerPaymentDomains = (pool: RunePool, need: number, allowed: Domain
 
 type TargetRequirement =
     | { kind: "NONE" }
-    | { kind: "UNIT_ANYWHERE"; count: number }
-    | { kind: "UNIT_HERE_ENEMY"; count: number }
-    | { kind: "UNIT_HERE_FRIENDLY"; count: number }
-    | { kind: "UNIT_FRIENDLY"; count: number }  // Friendly unit anywhere (e.g., "a friendly unit")
-    | { kind: "UNIT_ENEMY"; count: number }     // Enemy unit anywhere (e.g., "an enemy unit")
+    | { kind: "UNIT_ANYWHERE"; count: number; excludeSelf?: boolean }
+    | { kind: "UNIT_HERE_ENEMY"; count: number; excludeSelf?: boolean }
+    | { kind: "UNIT_HERE_FRIENDLY"; count: number; excludeSelf?: boolean }
+    | { kind: "UNIT_FRIENDLY"; count: number; excludeSelf?: boolean }  // Friendly unit anywhere (e.g., "a friendly unit")
+    | { kind: "UNIT_ENEMY"; count: number; excludeSelf?: boolean }     // Enemy unit anywhere (e.g., "an enemy unit")
     | { kind: "BATTLEFIELD"; count: number };
 
 const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?: boolean }): TargetRequirement => {
@@ -1080,14 +1080,18 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
   if (wantsFriendlyHere) return { kind: "UNIT_HERE_FRIENDLY", count: 1 };
 
   // Check for friendly/enemy unit targeting (anywhere)
-  // Patterns: "a friendly unit", "friendly unit's", "your unit"
-  const wantsFriendly = /\ba\s+friendly\s+unit\b/.test(text) || /\bfriendly\s+unit's\b/.test(text) ||
-      /\byour\s+unit\b/.test(text) || /\bone\s+of\s+your\s+units\b/.test(text);
-  // Patterns: "an enemy unit", "enemy unit's"
-  const wantsEnemy = /\ban?\s+enemy\s+unit\b/.test(text) || /\benemy\s+unit's\b/.test(text);
+  // Patterns: "a friendly unit", "another friendly unit", "friendly unit's", "your unit"
+  const wantsFriendly = /\b(a|another)\s+friendly\s+unit\b/.test(text) || /\bfriendly\s+unit's\b/.test(text) ||
+      /\byour\s+unit\b/.test(text) || /\bone\s+of\s+your\s+units\b/.test(text) ||
+      /\bother\s+friendly\s+units?\b/.test(text);
+  // Patterns: "an enemy unit", "another enemy unit", "enemy unit's"
+  const wantsEnemy = /\ban?(other)?\s+enemy\s+unit\b/.test(text) || /\benemy\s+unit's\b/.test(text) ||
+      /\bother\s+enemy\s+units?\b/.test(text);
+  // Detect "another" or "other" to exclude source unit from valid targets
+  const excludeSelf = /\b(another|other)\s+(friendly|enemy)?\s*(unit|units)\b/.test(text);
 
-  if (wantsFriendly && !wantsEnemy) return { kind: "UNIT_FRIENDLY", count: 1 };
-  if (wantsEnemy && !wantsFriendly) return { kind: "UNIT_ENEMY", count: 1 };
+  if (wantsFriendly && !wantsEnemy) return { kind: "UNIT_FRIENDLY", count: 1, excludeSelf };
+  if (wantsEnemy && !wantsFriendly) return { kind: "UNIT_ENEMY", count: 1, excludeSelf };
 
   const moveCount = text.match(/\bmove\s+(?:up\s+to\s+)?(\d+|one|two|three|four|five)\s+(?:friendly|your)?\s*units?\b/);
   if (moveCount) {
@@ -5456,7 +5460,8 @@ export default function RiftboundGame() {
       controller: PlayerId,
       req: TargetRequirement,
       ctxBf: number | null,
-      restrictBf: number | null
+      restrictBf: number | null,
+      excludeInstanceId?: string | null
   ): { label: string; t: Target }[] => {
     const all: { label: string; t: Target }[] = [];
     (["P1", "P2"] as PlayerId[]).forEach((owner) => {
@@ -5477,6 +5482,10 @@ export default function RiftboundGame() {
       if (opt.t.kind !== "UNIT") return false;
       const loc = locateUnit(d, opt.t.owner, opt.t.instanceId);
       if (!loc) return false;
+
+      // Exclude source unit if excludeSelf is set (for "another" patterns)
+      const shouldExcludeSelf = (req as any).excludeSelf && excludeInstanceId;
+      if (shouldExcludeSelf && opt.t.instanceId === excludeInstanceId) return false;
 
       const owner = opt.t.owner;
       const isFriendly = owner === controller;
@@ -5534,7 +5543,8 @@ export default function RiftboundGame() {
       req: TargetRequirement,
       ctxBf: number | null,
       restrictBf: number | null,
-      difficulty: AiDifficulty
+      difficulty: AiDifficulty,
+      excludeInstanceId?: string | null
   ): Target[] => {
     // If no target needed, return NONE.
     if (req.kind === "NONE") return [{ kind: "NONE" }];
@@ -5562,7 +5572,7 @@ export default function RiftboundGame() {
     }
 
     // Unit targets
-    const opts = getUnitTargetOptions(d, controller, req, ctxBf, restrictBf);
+    const opts = getUnitTargetOptions(d, controller, req, ctxBf, restrictBf, excludeInstanceId);
     if (opts.length === 0) return [{ kind: "NONE" }];
 
     // EASY / MEDIUM: first legal target.
@@ -5612,7 +5622,7 @@ export default function RiftboundGame() {
         aiTargetDispatchedRef.current.add(top.id);
 
         const diff = aiByPlayer[top.controller]?.difficulty || "MEDIUM";
-        const chosen = pickTargetForAi(game, top.controller, top.targetRequirement, top.contextBattlefieldIndex, top.restrictTargetsToBattlefieldIndex, diff);
+        const chosen = pickTargetForAi(game, top.controller, top.targetRequirement, top.contextBattlefieldIndex, top.restrictTargetsToBattlefieldIndex, diff, top.sourceInstanceId);
         dispatchEngineAction({ type: "SET_CHAIN_TARGETS", player: top.controller, chainItemId: top.id, targets: chosen });
         return;
       }
@@ -7392,7 +7402,7 @@ export default function RiftboundGame() {
     const top = d.chain[d.chain.length - 1];
     if (top && top.needsTargets && top.controller === pid) {
       const diff = difficulty;
-      const chosen = pickTargetForAi(d, pid, top.targetRequirement || { kind: "NONE" }, top.contextBattlefieldIndex ?? null, top.restrictTargetsToBattlefieldIndex ?? null, diff);
+      const chosen = pickTargetForAi(d, pid, top.targetRequirement || { kind: "NONE" }, top.contextBattlefieldIndex ?? null, top.restrictTargetsToBattlefieldIndex ?? null, diff, top.sourceInstanceId);
       intents.push({ type: "SET_CHAIN_TARGETS", chainItemId: top.id, targets: chosen });
       return intents;
     }
@@ -8710,7 +8720,7 @@ export default function RiftboundGame() {
     const ctxBf = item.contextBattlefieldIndex ?? null;
     const restrictBf = item.restrictTargetsToBattlefieldIndex ?? null;
 
-    const unitOptions = getUnitTargetOptions(g, item.controller, req, ctxBf, restrictBf);
+    const unitOptions = getUnitTargetOptions(g, item.controller, req, ctxBf, restrictBf, item.sourceInstanceId);
     const battlefieldOptions = getBattlefieldTargetOptions(g, restrictBf);
 
     const pickerDisabled = viewerId !== item.controller;
