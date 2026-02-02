@@ -225,6 +225,9 @@ interface PlayerState {
   enemyUnitsDiedThisTurn: number;
   sealExhaustedThisTurn: boolean; // Prevents auto-payer from recycling runes when Seal was used
   nextSpellDiscount: number; // Raging Firebrand: "Next spell costs [5] less"
+  unitsEnterReadyThisTurn: boolean; // Bushwhack/Confront: "Units enter ready this turn"
+  preventSpellAbilityDamageThisTurn: boolean; // Unyielding Spirit: "Prevent all spell and ability damage this turn"
+  opponentCantPlayCardsThisTurn: boolean; // Brynhir Thundersong: "Opponents can't play cards this turn"
 
   // Mulligan (setup)
   mulliganSelectedIds: string[];
@@ -350,6 +353,7 @@ interface GameState {
   players: Record<PlayerId, PlayerState>;
   battlefields: BattlefieldState[];
   damageKillEffects: { controller: PlayerId; untilTurn: number }[];
+  recallOnDeathEffects: { unitInstanceId: string; controller: PlayerId; untilTurn: number; payCost?: boolean }[]; // Highlander/Unlicensed Armory
   lastCombatExcessDamage: Record<PlayerId, number>;
   lastCombatExcessDamageTurn: number;
   
@@ -1366,8 +1370,12 @@ const addUnitToZone = (game: GameState, owner: PlayerId, unit: CardInstance, des
         if (raw.includes("other friendly units enter ready")) enterReadyMod = true;
       }
     }
-    if (enterReadyMod) {
+    // Also check if unitsEnterReadyThisTurn flag is set (Bushwhack/Confront)
+    if (enterReadyMod || p.unitsEnterReadyThisTurn) {
       unit.isReady = true;
+      if (p.unitsEnterReadyThisTurn) {
+        game.log.unshift(`${unit.name} enters ready (units enter ready this turn).`);
+      }
     }
 
     const bf = game.battlefields[dest.index];
@@ -1399,6 +1407,35 @@ const killUnit = (game: GameState, owner: PlayerId, unit: CardInstance, reason =
       unit.isReady = false;
       unit.damage = 0;
       unit.deathReplacement = undefined;
+      game.players[owner].base.units.push(unit);
+      game.log.unshift(`${unit.name} was recalled to base instead of dying.`);
+      return;
+    }
+  }
+
+  // Highlander/Unlicensed Armory: "The next time it dies this turn, recall it exhausted instead"
+  const recallEffect = game.recallOnDeathEffects.find(
+    (e) => e.unitInstanceId === unit.instanceId && e.untilTurn >= game.turnNumber
+  );
+  if (recallEffect) {
+    // Remove the effect (one-time use)
+    game.recallOnDeathEffects = game.recallOnDeathEffects.filter((e) => e !== recallEffect);
+    // If payCost is required, check if player can pay [C]
+    if (recallEffect.payCost) {
+      const pool = game.players[recallEffect.controller].runePool;
+      const canPayAny = Object.values(pool.power).some((v) => v > 0);
+      if (canPayAny) {
+        const dom = (Object.keys(pool.power) as Domain[]).find((d) => pool.power[d] > 0);
+        if (dom) pool.power[dom] -= 1;
+        unit.isReady = false;
+        unit.damage = 0;
+        game.players[owner].base.units.push(unit);
+        game.log.unshift(`${unit.name} was recalled to base instead of dying (paid [C]).`);
+        return;
+      }
+    } else {
+      unit.isReady = false;
+      unit.damage = 0;
       game.players[owner].base.units.push(unit);
       game.log.unshift(`${unit.name} was recalled to base instead of dying.`);
       return;
@@ -3608,8 +3645,11 @@ const resolveEffectText = (
       return m ? clampDomain(m[1]) : null;
     })();
     const payAny = /\bpay\s+1\s+rune\s+of\s+any\s+type\b/i.test(text);
+    const requiresPayment = /\byou may pay\s*\[c\]\b/i.test(text) || !!payDom || payAny;
+    
     forEachSelectedUnit((u, t) => {
       if (t.owner !== controller) return;
+      // Use unit's deathReplacement for the existing system
       u.deathReplacement = {
         untilTurn: game.turnNumber,
         recallExhausted: true,
@@ -3617,6 +3657,13 @@ const resolveEffectText = (
         payRuneAny: payAny,
         optional: /\byou may\b/i.test(text),
       };
+      // Also add to recallOnDeathEffects for Highlander/Unlicensed Armory
+      game.recallOnDeathEffects.push({
+        unitInstanceId: u.instanceId,
+        controller: controller,
+        untilTurn: game.turnNumber,
+        payCost: requiresPayment,
+      });
     });
     if (selectedUnits.length > 0) {
       game.log.unshift(`${controller} set a death replacement effect (${selectedUnits.length} unit(s)).`);
@@ -3792,6 +3839,11 @@ const resolveEffectText = (
     const applyDamageToUnit = (u: CardInstance) => {
       if (unitIgnoresDamageThisTurn(u)) {
         game.log.unshift(`${u.name} ignored damage (moved twice this turn).`);
+        return;
+      }
+      // Unyielding Spirit: "Prevent all spell and ability damage this turn"
+      if (game.players[u.owner].preventSpellAbilityDamageThisTurn) {
+        game.log.unshift(`${u.name} prevented damage (spell/ability damage prevented this turn).`);
         return;
       }
       u.damage += dmg;
@@ -3985,6 +4037,28 @@ const resolveEffectText = (
     const discount = m ? parseInt(m[1], 10) : 5;
     p.nextSpellDiscount = discount;
     game.log.unshift(`${controller}'s next spell costs ${discount} less.`);
+    did = true;
+  }
+
+  // Bushwhack/Confront: "units you play this turn enter ready" or "friendly units enter ready this turn"
+  if (/units\s+(you\s+play\s+)?this\s+turn\s+enter\s+ready/i.test(lower) || /friendly\s+units\s+enter\s+ready\s+this\s+turn/i.test(lower)) {
+    p.unitsEnterReadyThisTurn = true;
+    game.log.unshift(`${controller}'s units enter ready this turn.`);
+    did = true;
+  }
+
+  // Unyielding Spirit: "prevent all spell and ability damage this turn"
+  if (/prevent\s+all\s+spell\s+and\s+ability\s+damage\s+this\s+turn/i.test(lower)) {
+    p.preventSpellAbilityDamageThisTurn = true;
+    game.log.unshift(`${controller} prevents all spell and ability damage this turn.`);
+    did = true;
+  }
+
+  // Brynhir Thundersong: "opponents can't play cards this turn"
+  if (/opponents?\s+can'?t\s+play\s+cards?\s+this\s+turn/i.test(lower)) {
+    const opp = controller === "P1" ? "P2" : "P1";
+    game.players[opp].opponentCantPlayCardsThisTurn = true;
+    game.log.unshift(`${opp} can't play cards this turn.`);
     did = true;
   }
 
@@ -4747,6 +4821,9 @@ export default function RiftboundGame() {
         enemyUnitsDiedThisTurn: 0,
         sealExhaustedThisTurn: false,
         nextSpellDiscount: 0,
+        unitsEnterReadyThisTurn: false,
+        preventSpellAbilityDamageThisTurn: false,
+        opponentCantPlayCardsThisTurn: false,
         mulliganSelectedIds: [],
         mulliganDone: false,
       },
@@ -4771,6 +4848,9 @@ export default function RiftboundGame() {
         enemyUnitsDiedThisTurn: 0,
         sealExhaustedThisTurn: false,
         nextSpellDiscount: 0,
+        unitsEnterReadyThisTurn: false,
+        preventSpellAbilityDamageThisTurn: false,
+        opponentCantPlayCardsThisTurn: false,
         mulliganSelectedIds: [],
         mulliganDone: false,
       },
@@ -4823,6 +4903,7 @@ export default function RiftboundGame() {
       ],
       actionHistory: [],
       damageKillEffects: [],
+      recallOnDeathEffects: [],
       lastCombatExcessDamage: { P1: 0, P2: 0 },
       lastCombatExcessDamageTurn: 0,
       players,
@@ -4969,6 +5050,9 @@ export default function RiftboundGame() {
           enemyUnitsDiedThisTurn: 0,
           sealExhaustedThisTurn: false,
           nextSpellDiscount: 0,
+          unitsEnterReadyThisTurn: false,
+          preventSpellAbilityDamageThisTurn: false,
+          opponentCantPlayCardsThisTurn: false,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -4993,6 +5077,9 @@ export default function RiftboundGame() {
           enemyUnitsDiedThisTurn: 0,
           sealExhaustedThisTurn: false,
           nextSpellDiscount: 0,
+          unitsEnterReadyThisTurn: false,
+          preventSpellAbilityDamageThisTurn: false,
+          opponentCantPlayCardsThisTurn: false,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -5052,6 +5139,7 @@ export default function RiftboundGame() {
         ],
         actionHistory: [],
         damageKillEffects: [],
+        recallOnDeathEffects: [],
         lastCombatExcessDamage: { P1: 0, P2: 0 },
         lastCombatExcessDamageTurn: 0,
         players,
@@ -5170,6 +5258,9 @@ export default function RiftboundGame() {
           enemyUnitsDiedThisTurn: 0,
           sealExhaustedThisTurn: false,
           nextSpellDiscount: 0,
+          unitsEnterReadyThisTurn: false,
+          preventSpellAbilityDamageThisTurn: false,
+          opponentCantPlayCardsThisTurn: false,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -5194,6 +5285,9 @@ export default function RiftboundGame() {
           enemyUnitsDiedThisTurn: 0,
           sealExhaustedThisTurn: false,
           nextSpellDiscount: 0,
+          unitsEnterReadyThisTurn: false,
+          preventSpellAbilityDamageThisTurn: false,
+          opponentCantPlayCardsThisTurn: false,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -5251,6 +5345,7 @@ export default function RiftboundGame() {
         ],
         actionHistory: [],
         damageKillEffects: [],
+        recallOnDeathEffects: [],
         lastCombatExcessDamage: { P1: 0, P2: 0 },
         lastCombatExcessDamageTurn: 0,
         players,
@@ -5564,6 +5659,14 @@ export default function RiftboundGame() {
       d.players.P2.enemyUnitsDiedThisTurn = 0;
       d.players.P1.sealExhaustedThisTurn = false;
       d.players.P2.sealExhaustedThisTurn = false;
+      d.players.P1.unitsEnterReadyThisTurn = false;
+      d.players.P2.unitsEnterReadyThisTurn = false;
+      d.players.P1.preventSpellAbilityDamageThisTurn = false;
+      d.players.P2.preventSpellAbilityDamageThisTurn = false;
+      d.players.P1.opponentCantPlayCardsThisTurn = false;
+      d.players.P2.opponentCantPlayCardsThisTurn = false;
+      d.players.P1.nextSpellDiscount = 0;
+      d.players.P2.nextSpellDiscount = 0;
       for (const pid of ["P1", "P2"] as PlayerId[]) {
         for (const u of getUnitsInPlay(d, pid)) {
           u.moveCountThisTurn = 0;
@@ -5571,6 +5674,7 @@ export default function RiftboundGame() {
         }
       }
       d.damageKillEffects = [];
+      d.recallOnDeathEffects = d.recallOnDeathEffects.filter(e => e.untilTurn > d.turnNumber);
       // Clear expired delayed triggers
       d.delayedTriggers = d.delayedTriggers.filter(t => t.untilTurn > d.turnNumber);
     };
@@ -6668,6 +6772,11 @@ export default function RiftboundGame() {
   ): { ok: boolean; reason?: string } => {
     if (d.step === "GAME_OVER") return { ok: false, reason: "Game over" };
     const p = d.players[pid];
+
+    // Brynhir Thundersong: "Opponents can't play cards this turn"
+    if (p.opponentCantPlayCardsThisTurn) {
+      return { ok: false, reason: "Can't play cards this turn" };
+    }
 
     // Timing gates (match commitPendingPlay).
     if (params.source !== "FACEDOWN" && d.step !== "MULLIGAN" && d.step !== "ACTION" && d.step !== "DRAW" && d.step !== "CHANNEL" && d.step !== "SCORING" && d.step !== "AWAKEN") {

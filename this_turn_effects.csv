@@ -1,0 +1,243 @@
+Name,Collector numbwe,Card Link,Rarity,Domain 1,Domain 2,types,Subtype 1,Subtype 2,Subtype 3,Subtype 4,Subtype 5,supertypes,cmc,Energy,Power,Total Cost,Might,Description,ALT TEXT
+Back-Alley Bar,OGN-277/298,https://riftdecks.com/cards/details-back-alley-bar,uncommon,colorless,,battlefield,,,,,,,,,,-,,"When a unit moves from here, give it +1 [S] this turn.","Riftbound Battlefield: Back-Alley Bar. When a unit moves from here, give it +1 [S] this turn."
+Targon's Peak,OGN-289/298,https://riftdecks.com/cards/details-targons-peak,uncommon,colorless,,battlefield,,,,,,,,,,-,,"When you conquer here, ready 2 runes at the end of this turn.","Riftbound Battlefield: Targon's Peak. When you conquer here, ready 2 runes at the end of this turn."
+Heart of Dark Ice,SFD-052/221,https://riftdecks.com/cards/details-heart-of-dark-ice,rare,calm,,gear,,,,,,,3,3,C,3C,,[T]: Give a unit +3 [S] this turn.,Riftbound Gear: Heart of Dark Ice. [T]: Give a unit +3 [S] this turn.
+Mask of Foresight,OGN-060/298,https://riftdecks.com/cards/details-mask-of-foresight,uncommon,calm,,gear,,,,,,,2,2,,2,,"When a friendly unit attacks or defends alone, give it +1 [S] this turn.","Riftbound Gear: Mask of Foresight. When a friendly unit attacks or defends alone, give it +1 [S] this turn."
+Orb of Regret,OGN-090/298,https://riftdecks.com/cards/details-orb-of-regret,common,mind,,gear,,,,,,,1,1,,1,,"[T]: Give a unit -1 [S] this turn, to a minimum of 1 [S].","Riftbound Gear: Orb of Regret. [T]: Give a unit -1 [S] this turn, to a minimum of 1 [S]."
+Pirate's Haven,OGN-143/298,https://riftdecks.com/cards/details-pirates-haven,uncommon,body,,gear,,,,,,,3,3,,3,,"When you ready a friendly unit, give it +1 [S] this turn.","Riftbound Gear: Pirate's Haven. When you ready a friendly unit, give it +1 [S] this turn."
+Sun Disc,OGN-021/298,https://riftdecks.com/cards/details-sun-disc,uncommon,fury,,gear,,,,,,,2,2,C,2C,,[T]: [Legion] — The next unit you play this turn enters ready. (Get the effect if you've played another card this turn.),Riftbound Gear: Sun Disc. [T]: [Legion] — The next unit you play this turn enters ready. (Get the effect if you've played another card this turn.)
+Temporal Portal,SFD-078/221,https://riftdecks.com/cards/details-temporal-portal,uncommon,mind,,gear,,,,,,,3,3,,3,,"[A], [T]: Give the next spell you play this turn [Repeat] equal to its cost.  (You may pay the additional cost to repeat the spell's effect.) ","Riftbound Gear: Temporal Portal. [A], [T]: Give the next spell you play this turn [Repeat] equal to its cost. (You may pay the additional cost to repeat the spell's effect.)"
+Unlicensed Armory,OGN-023/298,https://riftdecks.com/cards/details-unlicensed-armory,uncommon,fury,,gear,,,,,,,2,2,,2,,"Discard 1, [T]: Choose a friendly unit. The next time it dies this turn, you may pay [C] to recall it exhausted instead. (Send it to base. This isn't a move.)","Riftbound Gear: Unlicensed Armory. Discard 1, [T]: Choose a friendly unit. The next time it dies this turn, you may pay [C] to recall it exhausted instead. (Send it to base. This isn't a move.)"
+"Ahri, Nine-Tailed Fox",OGN-255/298,https://riftdecks.com/cards/details-ahri-nine-tailed-fox,rare,calm,mind,legend,ahri,,,,,legend,,,,-,,"When an enemy unit attacks a battlefield you control, give it -1 [S] this turn, to a minimum of 1 [S].","Riftbound Legend: Nine-Tailed Fox. When an enemy unit attacks a battlefield you control, give it -1 [S] this turn, to a minimum of 1 [S]."
+"Azir, Emperor of the Sands",SFD-197/221,https://riftdecks.com/cards/details-azir-emperor-of-the-sands,rare,calm,order,legend,azir,,,,,legend,,,,-,,"Sand Soldiers you play have [Weaponmaster].  (When they're played, you may [Equip] one of your Equipment to them for [A] less.) 
+[1], [T]: Play a 2 [S] Sand Soldier unit token to your base. Use only if you've played an Equipment this turn.","Riftbound Legend: Emperor of the Sands. Sand Soldiers you play have [Weaponmaster]. (When they're played, you may [Equip] one of your Equipment to them for [A] less.)
+[1], [T]: Play a 2 [S] Sand Soldier unit token to your base. Use only if you've played an Equipment this turn."
+"Darius, Hand of Noxus",OGN-253/298,https://riftdecks.com/cards/details-darius-hand-of-noxus,rare,fury,order,legend,darius,,,,,legend,,,,-,,"[T]: [Reaction], [Legion] — [Add] [1]. (Abilities that add resources can't be reacted to. Get the effect if you've played a card this turn.)","Riftbound Legend: Hand of Noxus. [T]: [Reaction], [Legion] — [Add] [1]. (Abilities that add resources can't be reacted to. Get the effect if you've played a card this turn.)"
+"Ezreal, Prodigal Explorer",SFD-248/221,https://riftdecks.com/cards/details-ezreal-prodigal-explorer,showcase,mind,chaos,legend,ezreal,,,,,legend,,,,-,,[T]: [Reaction] — Draw 1. Use only if you've chosen enemy units and/or gear twice this turn with spells or unit abilities.,Riftbound Legend: Prodigal Explorer. [T]: [Reaction] — Draw 1. Use only if you've chosen enemy units and/or gear twice this turn with spells or unit abilities.
+"Miss Fortune, Bounty Hunter",OGN-309/298,https://riftdecks.com/cards/details-miss-fortune-bounty-hunter,showcase,body,chaos,legend,missfortune,,,,,legend,,,,-,,[T]: Give a unit [Ganking] this turn. (It can move from battlefield to battlefield.),Riftbound Legend: Bounty Hunter. [T]: Give a unit [Ganking] this turn. (It can move from battlefield to battlefield.)
+Against the Odds,SFD-001/221,https://riftdecks.com/cards/details-against-the-odds,common,fury,,spell,,,,,,,2,2,,2,,"[Reaction]  (Play any time, even before spells and abilities resolve.) 
+Give a friendly unit at a battlefield +2 [S] this turn for each enemy unit there.","Riftbound Spell: Against the Odds. [Reaction] (Play any time, even before spells and abilities resolve.)
+Give a friendly unit at a battlefield +2 [S] this turn for each enemy unit there."
+Back to Back,OGN-206/298,https://riftdecks.com/cards/details-back-to-back,common,order,,spell,,,,,,,3,3,,3,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+Give two friendly units each +2 [S] this turn.","Riftbound Spell: Back to Back. [Reaction] (Play any time, even before spells and abilities resolve.)
+Give two friendly units each +2 [S] this turn."
+Block,OGN-057/298,https://riftdecks.com/cards/details-block,uncommon,calm,,spell,,,,,,,2,2,,2,,"[Hidden] (Hide now for [A] to react with later for [0].)
+[Action] (Play on your turn or in showdowns.)
+Give a unit [Shield 3] and [Tank] this turn. (+3 [S] while it's a defender. It must be assigned combat damage first.)","Riftbound Spell: Block. [Hidden] (Hide now for [A] to react with later for [0].)
+[Action] (Play on your turn or in showdowns.)
+Give a unit [Shield 3] and [Tank] this turn. (+3 [S] while it's a defender. It must be assigned combat damage first.)"
+Bonds of Strength,SFD-151/221,https://riftdecks.com/cards/details-bonds-of-strength,common,order,,spell,,,,,,,2,2,,2,,"[Reaction]  (Play any time, even before spells and abilities resolve.) 
+[Repeat] [2]  (You may pay the additional cost to repeat this spell's effect.) 
+Give two friendly units each +1 [S] this turn.","Riftbound Spell: Bonds of Strength. [Reaction] (Play any time, even before spells and abilities resolve.)
+[Repeat] [2] (You may pay the additional cost to repeat this spell's effect.)
+Give two friendly units each +1 [S] this turn."
+Bushwhack,SFD-004/221,https://riftdecks.com/cards/details-bushwhack,common,fury,,spell,,,,,,,2,2,C,2C,,"[Hidden]  (Hide now for [A] to react with later for [0].) 
+Friendly units enter ready this turn. Play a Gold gear token exhausted.","Riftbound Spell: Bushwhack. [Hidden] (Hide now for [A] to react with later for [0].)
+Friendly units enter ready this turn. Play a Gold gear token exhausted."
+Call to Glory,OGN-207/298,https://riftdecks.com/cards/details-call-to-glory,common,order,,spell,,,,,,,3,3,,3,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+As you play this, you may spend a buff as an additional cost.
+Give a unit +3 [S] this turn.","Riftbound Spell: Call to Glory. [Reaction] (Play any time, even before spells and abilities resolve.)
+As you play this, you may spend a buff as an additional cost.
+Give a unit +3 [S] this turn."
+Cleave,OGN-004/298,https://riftdecks.com/cards/details-cleave,common,fury,,spell,,,,,,,1,1,,1,,"[Action] (Play on your turn or in showdowns.)
+Give a unit [Assault 3] this turn. (+3 [S] while it's an attacker.)","Riftbound Spell: Cleave. [Action] (Play on your turn or in showdowns.)
+Give a unit [Assault 3] this turn. (+3 [S] while it's an attacker.)"
+Confront,OGN-129/298,https://riftdecks.com/cards/details-confront,common,body,,spell,,,,,,,2,2,,2,,"[Action] (Play on your turn or in showdowns.)
+Units you play this turn enter ready. Draw 1.","Riftbound Spell: Confront. [Action] (Play on your turn or in showdowns.)
+Units you play this turn enter ready. Draw 1."
+Convergent Mutation,OGN-108/298,https://riftdecks.com/cards/details-convergent-mutation,rare,mind,,spell,,,,,,,2,2,C,2C,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+Choose a friendly unit. If its Might is less than another friendly unit's, its Might becomes the Might of that friendly unit this turn.","Riftbound Spell: Convergent Mutation. [Reaction] (Play any time, even before spells and abilities resolve.)
+Choose a friendly unit. If its Might is less than another friendly unit's, its Might becomes the Might of that friendly unit this turn."
+Counter Strike,SFD-194/221,https://riftdecks.com/cards/details-counter-strike,epic,calm,body,spell,jax,,,,,signature,2,2,C,2C,,"[Reaction]  (Play any time, even before spells and abilities resolve.) 
+Choose a unit. The next time that unit would be dealt damage this turn, prevent it. Draw 1.","Riftbound Spell: Counter Strike. [Reaction] (Play any time, even before spells and abilities resolve.)
+Choose a unit. The next time that unit would be dealt damage this turn, prevent it. Draw 1."
+Danger Zone,SFD-182/221,https://riftdecks.com/cards/details-danger-zone,epic,fury,mind,spell,rumble,,,,,signature,1,1,C,1C,,"[Reaction]  (Play any time, even before spells and abilities resolve.) 
+[Repeat] \[1]\[C]  (You may pay the additional cost to repeat this spell's effect.) 
+Give your Mechs +1 [S] this turn.","Riftbound Spell: Danger Zone. [Reaction] (Play any time, even before spells and abilities resolve.)
+[Repeat] [1][C] (You may pay the additional cost to repeat this spell's effect.)
+Give your Mechs +1 [S] this turn."
+Deathgrip,SFD-163/221,https://riftdecks.com/cards/details-deathgrip,uncommon,order,,spell,,,,,,,2,2,,2,,"[Reaction]  (Play any time, even before spells and abilities resolve.) 
+Kill a friendly unit to give +[S] equal to its Might to another friendly unit this turn. Draw 1.","Riftbound Spell: Deathgrip. [Reaction] (Play any time, even before spells and abilities resolve.)
+Kill a friendly unit to give +[S] equal to its Might to another friendly unit this turn. Draw 1."
+Decisive Strike,OGS-024/024,https://riftdecks.com/cards/details-decisive-strike,epic,body,order,spell,garen,,,,,signature,5,5,C,5C,,"[Action] (Play on your turn or in showdowns.)
+Give friendly units +2 [S] this turn.","Riftbound Spell: Decisive Strike. [Action] (Play on your turn or in showdowns.)
+Give friendly units +2 [S] this turn."
+Defiant Dance,SFD-196/221,https://riftdecks.com/cards/details-defiant-dance,epic,calm,chaos,spell,irelia,,,,,signature,1,1,C,1C,,"[Reaction]  (Play any time, even before spells and abilities resolve.) 
+Give a unit +2 [S] this turn and another unit -2 [S] this turn.","Riftbound Spell: Defiant Dance. [Reaction] (Play any time, even before spells and abilities resolve.)
+Give a unit +2 [S] this turn and another unit -2 [S] this turn."
+Discipline,OGN-058/298,https://riftdecks.com/cards/details-discipline,uncommon,calm,,spell,,,,,,,2,2,,2,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+Give a unit +2 [S] this turn. Draw 1.","Riftbound Spell: Discipline. [Reaction] (Play any time, even before spells and abilities resolve.)
+Give a unit +2 [S] this turn. Draw 1."
+En Garde,OGN-046/298,https://riftdecks.com/cards/details-en-garde,common,calm,,spell,,,,,,,1,1,,1,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+Give a friendly unit +1 [S] this turn, then an additional +1 [S] this turn if it is the only unit you control there.","Riftbound Spell: En Garde. [Reaction] (Play any time, even before spells and abilities resolve.)
+Give a friendly unit +1 [S] this turn, then an additional +1 [S] this turn if it is the only unit you control there."
+Facebreaker,OGN-220/298,https://riftdecks.com/cards/details-facebreaker,uncommon,order,,spell,,,,,,,2,2,,2,,"[Hidden] (Hide now for [A] to react with later for [0].)
+[Action] (Play on your turn or in showdowns.)
+Stun a friendly unit and an enemy unit at the same battlefield. (They don't deal combat damage this turn.)","Riftbound Spell: Facebreaker. [Hidden] (Hide now for [A] to react with later for [0].)
+[Action] (Play on your turn or in showdowns.)
+Stun a friendly unit and an enemy unit at the same battlefield. (They don't deal combat damage this turn.)"
+Feral Strength,SFD-034/221,https://riftdecks.com/cards/details-feral-strength,common,calm,,spell,,,,,,,2,2,,2,,"[Reaction]  (Play any time, even before spells and abilities resolve.) 
+[Repeat] [2]  (You may pay the additional cost to repeat this spell's effect.) 
+Give a unit +2 [S] this turn.","Riftbound Spell: Feral Strength. [Reaction] (Play any time, even before spells and abilities resolve.)
+[Repeat] [2] (You may pay the additional cost to repeat this spell's effect.)
+Give a unit +2 [S] this turn."
+Frigid Touch,SFD-066/221,https://riftdecks.com/cards/details-frigid-touch,common,mind,,spell,,,,,,,2,2,,2,,"[Reaction]  (Play any time, even before spells and abilities resolve.) 
+[Repeat] [2]  (You may pay the additional cost to repeat this spell's effect.) 
+Give a unit -2 [S] this turn.","Riftbound Spell: Frigid Touch. [Reaction] (Play any time, even before spells and abilities resolve.)
+[Repeat] [2] (You may pay the additional cost to repeat this spell's effect.)
+Give a unit -2 [S] this turn."
+Gentlemen's Duel,OGS-008/024,https://riftdecks.com/cards/details-gentlemens-duel,common,body,,spell,,,,,,,6,6,C,6C,,"[Action] (Play on your turn or in showdowns.)
+Give a friendly unit +3 [S] this turn. Then choose an enemy unit. They deal damage equal to their Mights to each other.","Riftbound Spell: Gentlemen's Duel. [Action] (Play on your turn or in showdowns.)
+Give a friendly unit +3 [S] this turn. Then choose an enemy unit. They deal damage equal to their Mights to each other."
+Grand Strategem,OGN-233/298,https://riftdecks.com/cards/details-grand-strategem,rare,order,,spell,,,,,,,6,6,CCC,6CCC,,"[Action] (Play on your turn or in showdowns.)
+Give friendly units +5 [S] this turn.","Riftbound Spell: Grand Strategem. [Action] (Play on your turn or in showdowns.)
+Give friendly units +5 [S] this turn."
+Guerilla Warfare,OGN-264/298,https://riftdecks.com/cards/details-guerilla-warfare,epic,mind,chaos,spell,teemo,,,,,signature,2,2,C,2C,,Return up to two cards with [Hidden] from your trash to your hand. You can hide cards ignoring costs this turn.,Riftbound Spell: Guerilla Warfare. Return up to two cards with [Hidden] from your trash to your hand. You can hide cards ignoring
+Highlander,OGS-020/024,https://riftdecks.com/cards/details-highlander,epic,calm,body,spell,masteryi,,,,,signature,4,4,,4,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+Choose a friendly unit. The next time it dies this turn, recall it exhausted instead. (Send it to base. This isn't a move.)","Riftbound Spell: Highlander. [Reaction] (Play any time, even before spells and abilities resolve.)
+Choose a friendly unit. The next time it dies this turn, recall it exhausted instead. (Send it to base. This isn't a move.)"
+Imperial Decree,OGN-221/298,https://riftdecks.com/cards/details-imperial-decree,uncommon,order,,spell,,,,,,,5,5,CC,5CC,,"[Action] (Play on your turn or in showdowns.)
+When any unit takes damage this turn, kill it.","Riftbound Spell: Imperial Decree. [Action] (Play on your turn or in showdowns.)
+When any unit takes damage this turn, kill it."
+Last Stand,OGN-069/298,https://riftdecks.com/cards/details-last-stand,rare,calm,,spell,,,,,,,3,3,C,3C,,"[Action] (Play on your turn or in showdowns.)
+Double a friendly unit's Might this turn. Give it [Temporary]. (Kill it at the start of its controller's Beginning Phase, before scoring.)","Riftbound Spell: Last Stand. [Action] (Play on your turn or in showdowns.)
+Double a friendly unit's Might this turn. Give it [Temporary]. (Kill it at the start of its controller's Beginning Phase, before scoring.)"
+Noxian Guillotine,OGN-254/298,https://riftdecks.com/cards/details-noxian-guillotine,epic,fury,order,spell,darius,,,,,signature,4,4,C,4C,,"[Action] (Play on your turn or in showdowns.)
+Choose a unit. Kill it the next time it takes damage this turn.
+[Legion] — Kill it now instead. (Get the effect if you've played another card this turn.)","Riftbound Spell: Noxian Guillotine. [Action] (Play on your turn or in showdowns.)
+Choose a unit. Kill it the next time it takes damage this turn.
+[Legion] — Kill it now instead. (Get the effect if you've played another card this turn.)"
+Primal Strength,OGN-154/298,https://riftdecks.com/cards/details-primal-strength,rare,body,,spell,,,,,,,4,4,C,4C,,"[Action] (Play on your turn or in showdowns.)
+Give a unit +7 [S] this turn.","Riftbound Spell: Primal Strength. [Action] (Play on your turn or in showdowns.)
+Give a unit +7 [S] this turn."
+Punch First,SFD-097/221,https://riftdecks.com/cards/details-punch-first,common,body,,spell,,,,,,,1,1,CC,1CC,,"[Action]  (Play on your turn or in showdowns.) 
+Give a unit +5 [S] this turn.","Riftbound Spell: Punch First. [Action] (Play on your turn or in showdowns.)
+Give a unit +5 [S] this turn."
+Rally the Troops,SFD-166/221,https://riftdecks.com/cards/details-rally-the-troops,uncommon,order,,spell,,,,,,,2,2,,2,,"[Action]  (Play on your turn or in showdowns.) 
+When a friendly unit is played this turn, buff it.  (If it doesn't have a buff, it gets a +1 [S] buff.) 
+Draw 1.","Riftbound Spell: Rally the Troops. [Action] (Play on your turn or in showdowns.)
+When a friendly unit is played this turn, buff it. (If it doesn't have a buff, it gets a +1 [S] buff.)
+Draw 1."
+Relentless Pursuit,SFD-184/221,https://riftdecks.com/cards/details-relentless-pursuit,epic,fury,body,spell,lucian,,,,,signature,2,2,C,2C,,"[Action]  (Play on your turn or in showdowns.) 
+Move a friendly unit. You may attach an Equipment with the same controller to it. This turn, that unit has ""When I conquer, you may move me to my base.""","Riftbound Spell: Relentless Pursuit. [Action] (Play on your turn or in showdowns.)
+Move a friendly unit. You may attach an Equipment with the same controller to it. This turn, that unit has ""When I conquer, you may move me to my base."""
+Riposte,SFD-206/221,https://riftdecks.com/cards/details-riposte,epic,body,order,spell,fiora,,,,,signature,2,2,CC,2CC,,"[Reaction]  (Play any time, even before spells and abilities resolve.) 
+Choose a friendly unit and a spell. Counter that spell and give that unit +[S] equal to that spell's Energy cost this turn.","Riftbound Spell: Riposte. [Reaction] (Play any time, even before spells and abilities resolve.)
+Choose a friendly unit and a spell. Counter that spell and give that unit +[S] equal to that spell's Energy cost this turn."
+Rune Prison,OGN-050/298,https://riftdecks.com/cards/details-rune-prison,common,calm,,spell,,,,,,,2,2,C,2C,,"[Action] (Play on your turn or in showdowns.)
+Stun a unit. (It doesn't deal combat damage this turn.)","Riftbound Spell: Rune Prison. [Action] (Play on your turn or in showdowns.)
+Stun a unit. (It doesn't deal combat damage this turn.)"
+Siphon Power,OGN-266/298,https://riftdecks.com/cards/details-siphon-power,epic,mind,order,spell,viktor,,,,,signature,2,2,C,2C,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+Choose a battlefield. Give friendly units there +1 [S] this turn and enemy units there -1 [S] this turn, to a minimum of 1 [S].","Riftbound Spell: Siphon Power. [Reaction] (Play any time, even before spells and abilities resolve.)
+Choose a battlefield. Give friendly units there +1 [S] this turn and enemy units there -1 [S] this turn, to a minimum of 1 [S]."
+Smoke Screen,OGN-093/298,https://riftdecks.com/cards/details-smoke-screen,common,mind,,spell,,,,,,,2,2,C,2C,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+Give a unit -4 [S] this turn, to a minimum of 1 [S].","Riftbound Spell: Smoke Screen. [Reaction] (Play any time, even before spells and abilities resolve.)
+Give a unit -4 [S] this turn, to a minimum of 1 [S]."
+Spoils of War,OGN-144/298,https://riftdecks.com/cards/details-spoils-of-war,uncommon,body,,spell,,,,,,,4,4,C,4C,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+If an enemy unit has died this turn, this costs [2] less.
+Draw 2.","Riftbound Spell: Spoils of War. [Reaction] (Play any time, even before spells and abilities resolve.)
+If an enemy unit has died this turn, this costs [2] less.
+Draw 2."
+Stand United,OGN-053/298,https://riftdecks.com/cards/details-stand-united,common,calm,,spell,,,,,,,3,3,,3,,"[Hidden] (Hide now for [A] to react with later for [0].)
+[Action] (Play on your turn or in showdowns.)
+Buff a friendly unit. Buffs give an additional +1 [S] to friendly units this turn. (To buff a unit, give it a +1 [S] buff if it doesn't already have one.)","Riftbound Spell: Stand United. [Hidden] (Hide now for [A] to react with later for [0].)
+[Action] (Play on your turn or in showdowns.)
+Buff a friendly unit. Buffs give an additional +1 [S] to friendly units this turn. (To buff a unit, give it a +1 [S] buff if it doesn't already have one.)"
+Stupefy,OGN-095/298,https://riftdecks.com/cards/details-stupefy,common,mind,,spell,,,,,,,1,1,,1,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+Give a unit -1 [S] this turn, to a minimum of 1 [S]. Draw 1.","Riftbound Spell: Stupefy. [Reaction] (Play any time, even before spells and abilities resolve.)
+Give a unit -1 [S] this turn, to a minimum of 1 [S]. Draw 1."
+Switcheroo,SFD-145/221,https://riftdecks.com/cards/details-switcheroo,rare,chaos,,spell,,,,,,,2,2,CC,2CC,,"[Hidden]  (Hide now for [A] to react with later for [0].) 
+[Action]  (Play on your turn or in showdowns.) 
+Swap the Might of two units at the same battlefield this turn.","Riftbound Spell: Switcheroo. [Hidden] (Hide now for [A] to react with later for [0].)
+[Action] (Play on your turn or in showdowns.)
+Swap the Might of two units at the same battlefield this turn."
+Thwonk!,SFD-040/221,https://riftdecks.com/cards/details-thwonk,common,calm,,spell,,,,,,,2,2,,2,,"[Action]  (Play on your turn or in showdowns.) 
+[Repeat] [2]  (You may pay the additional cost to repeat this spell's effect.) 
+Stun an attacking unit.  (It doesn't deal combat damage this turn.) ","Riftbound Spell: Thwonk!. [Action] (Play on your turn or in showdowns.)
+[Repeat] [2] (You may pay the additional cost to repeat this spell's effect.)
+Stun an attacking unit. (It doesn't deal combat damage this turn.)"
+Unyielding Spirit,OGN-145/298,https://riftdecks.com/cards/details-unyielding-spirit,uncommon,body,,spell,,,,,,,1,1,C,1C,,"[Reaction] (Play any time, even before spells and abilities resolve.)
+Prevent all spell and ability damage this turn.","Riftbound Spell: Unyielding Spirit. [Reaction] (Play any time, even before spells and abilities resolve.)
+Prevent all spell and ability damage this turn."
+Zenith Blade,OGN-262/298,https://riftdecks.com/cards/details-zenith-blade,epic,calm,order,spell,leona,,,,,signature,3,3,CC,3CC,,"[Action] (Play on your turn or in showdowns.)
+Stun an enemy unit at a battlefield. You may move a friendly unit to that enemy unit's battlefield. (A stunned unit doesn't deal combat damage this turn.)","Riftbound Spell: Zenith Blade. [Action] (Play on your turn or in showdowns.)
+Stun an enemy unit at a battlefield. You may move a friendly unit to that enemy unit's battlefield. (A stunned unit doesn't deal combat damage this turn.)"
+"Aphelios, Exalted",SFD-224*/221,https://riftdecks.com/cards/details-aphelios-exalted,showcase,calm,,unit,aphelios,mounttargon,,,,champion,4,4,C,4C,4,"When you attach an Equipment to me, choose one that hasn't been chosen this turn —
+- Ready 2 runes.
+- Channel 1 rune exhausted.
+- Buff a friendly unit.","Riftbound Unit: Aphelios, Exalted. When you attach an Equipment to me, choose one that hasn't been chosen this turn —
+- Ready 2 runes.
+- Channel 1 rune exhausted.
+- Buff a friendly unit."
+Battering Ram,SFD-012/221,https://riftdecks.com/cards/details-battering-ram,uncommon,fury,,unit,trifarian,noxus,,,,,5,5,,5,5,"I cost [1] less for each card you've played this turn, to a minimum of [1].","Riftbound Unit: Battering Ram. I cost [1] less for each card you've played this turn, to a minimum of [1]."
+Blastcone Fae,OGN-097/298,https://riftdecks.com/cards/details-blastcone-fae,uncommon,mind,,unit,fae,bandlecity,,,,,2,2,C,2C,2,"[Hidden] (Hide now for [A] to react with later for [0].)
+When you play me, give a unit -2 [S] this turn, to a minimum of 1 [S].","Riftbound Unit: Blastcone Fae. [Hidden] (Hide now for [A] to react with later for [0].)
+When you play me, give a unit -2 [S] this turn, to a minimum of 1 [S]."
+Brynhir Thundersong,OGN-026/298,https://riftdecks.com/cards/details-brynhir-thundersong,rare,fury,,unit,freljord,,,,,,6,6,,6,5,"When you play me, opponents can't play cards this turn.","Riftbound Unit: Brynhir Thundersong. When you play me, opponents can't play cards this turn."
+Dangerous Duo,OGN-016/298,https://riftdecks.com/cards/details-dangerous-duo,uncommon,fury,,unit,mech,bandlecity,,,,,3,3,,3,3,"[Legion] — When you play me, give a unit +2 [S] this turn. (Get the effect if you've played another card this turn.)","Riftbound Unit: Dangerous Duo. [Legion] — When you play me, give a unit +2 [S] this turn. (Get the effect if you've played another card this turn.)"
+"Darius, Trifarian",OGN-027a/298,https://riftdecks.com/cards/details-darius-trifarian,showcase,fury,,unit,trifarian,darius,noxus,,,champion,5,5,C,5C,5,"When you play your second card in a turn, give me +2 [S] this turn and ready me.","Riftbound Unit: Darius, Trifarian. When you play your second card in a turn, give me +2 [S] this turn and ready me."
+"Draven, Vanquisher",SFD-020a/221,https://riftdecks.com/cards/details-draven-vanquisher,showcase,fury,,unit,draven,noxus,,,,champion,4,4,,4,4,"When I win a combat, play a Gold gear token exhausted.
+When I attack or defend, you may pay [C]. If you do, give me +2 [S] this turn.","Riftbound Unit: Draven, Vanquisher. When I win a combat, play a Gold gear token exhausted.
+When I attack or defend, you may pay [C]. If you do, give me +2 [S] this turn."
+Eclipse Herald,OGN-059/298,https://riftdecks.com/cards/details-eclipse-herald,uncommon,calm,,unit,bird,mounttargon,,,,,7,7,C,7C,7,"When you stun an enemy unit, ready me and give me +1 [S] this turn.","Riftbound Unit: Eclipse Herald. When you stun an enemy unit, ready me and give me +1 [S] this turn."
+Ember Monk,OGN-167/298,https://riftdecks.com/cards/details-ember-monk,common,chaos,,unit,bandlecity,,,,,,4,4,,4,4,"When you play a card from [Hidden], give me +2 [S] this turn.","Riftbound Unit: Ember Monk. When you play a card from [Hidden], give me +2 [S] this turn."
+Frostcoat Cub,SFD-067/221,https://riftdecks.com/cards/details-frostcoat-cub,common,mind,,unit,dog,freljord,,,,,3,3,,3,3,"You may pay [C] as an additional cost to play me.
+When you play me, if you paid the additional cost, give a unit -2 [S] this turn.","Riftbound Unit: Frostcoat Cub. You may pay [C] as an additional cost to play me.
+When you play me, if you paid the additional cost, give a unit -2 [S] this turn."
+Gem Jammer,SFD-007/221,https://riftdecks.com/cards/details-gem-jammer,common,fury,,unit,mech,bandlecity,,,,,2,2,,2,2,"When you play me, give a unit [Ganking] this turn.  (It can move from battlefield to battlefield.) ","Riftbound Unit: Gem Jammer. When you play me, give a unit [Ganking] this turn. (It can move from battlefield to battlefield.)"
+"Irelia, Fervent",SFD-225/221,https://riftdecks.com/cards/details-irelia-fervent,showcase,calm,,unit,irelia,ionia,,,,champion,5,5,,5,4,"[Deflect]  (Opponents must pay [A] to choose me with a spell or ability.) 
+When you choose or ready me, give me +1 [S] this turn.","Riftbound Unit: Irelia, Fervent. [Deflect] (Opponents must pay [A] to choose me with a spell or ability.)
+When you choose or ready me, give me +1 [S] this turn."
+"Jayce, Man of Progress",SFD-084/221,https://riftdecks.com/cards/details-jayce-man-of-progress,rare,mind,,unit,jayce,piltover,,,,champion,4,4,,4,4,"When you play me, you may kill a friendly gear. If you do, you may play a gear with Energy cost no more than [7] from hand this turn, ignoring its Energy cost.  (You must still pay its Power cost.) ","Riftbound Unit: Jayce, Man of Progress. When you play me, you may kill a friendly gear. If you do, you may play a gear with Energy cost no more than [7] from hand this turn, ignoring its Energy cost. (You must still pay its Power cost.)"
+"Jinx, Rebel",OGN-202/298,https://riftdecks.com/cards/details-jinx-rebel,epic,chaos,,unit,jinx,zaun,,,,champion,5,5,C,5C,5,"When you discard one or more cards, ready me and give me +1 [S] this turn.","Riftbound Unit: Jinx, Rebel. When you discard one or more cards, ready me and give me +1 [S] this turn."
+Kato the Arm,SFD-112/221,https://riftdecks.com/cards/details-kato-the-arm,rare,body,,unit,noxus,,,,,,4,4,C,4C,3,"[Deflect]  (Opponents must pay [A] to choose me with a spell or ability.) 
+When I move to a battlefield, give a friendly unit my keywords and +[S] equal to my Might this turn.","Riftbound Unit: Kato the Arm. [Deflect] (Opponents must pay [A] to choose me with a spell or ability.)
+When I move to a battlefield, give a friendly unit my keywords and +[S] equal to my Might this turn."
+"Kayn, Unleashed",OGN-189/298,https://riftdecks.com/cards/details-kayn-unleashed,rare,chaos,,unit,kayn,ionia,,,,champion,6,6,C,6C,6,"[Ganking] (I can move from battlefield to battlefield.)
+If I have moved twice this turn, I don't take damage.","Riftbound Unit: Kayn, Unleashed. [Ganking] (I can move from battlefield to battlefield.)
+If I have moved twice this turn, I don't take damage."
+"Leona, Determined",OGN-238/298,https://riftdecks.com/cards/details-leona-determined,rare,order,,unit,leona,mounttargon,,,,champion,4,4,C,4C,4,"[Shield] (+1 [S] while I'm a defender.)
+When I attack, stun an enemy unit here. (It doesn't deal combat damage this turn.)","Riftbound Unit: Leona, Determined. [Shield] (+1 [S] while I'm a defender.)
+When I attack, stun an enemy unit here. (It doesn't deal combat damage this turn.)"
+"Lux, Illuminated",OGS-006/024,https://riftdecks.com/cards/details-lux-illuminated,rare,mind,,unit,lux,demacia,,,,champion,6,6,C,6C,5,"When you play a spell that costs [5] or more, give me +3 [S] this turn.","Riftbound Unit: Lux, Illuminated. When you play a spell that costs [5] or more, give me +3 [S] this turn."
+Needlessly Large Yordle,SFD-055/221,https://riftdecks.com/cards/details-needlessly-large-yordle,rare,calm,,unit,yordle,bandlecity,,,,,10,10,CCC,10CCC,5,"[Shield 5]  (+5 [S] while I'm a defender.) 
+[Tank]  (I must be assigned combat damage first.) 
+I cost \[2]\[C] less for each point you scored from holding this turn.","Riftbound Unit: Needlessly Large Yordle. [Shield 5] (+5 [S] while I'm a defender.)
+[Tank] (I must be assigned combat damage first.)
+I cost [2][C] less for each point you scored from holding this turn."
+Noxus Hopeful,OGN-012/298,https://riftdecks.com/cards/details-noxus-hopeful,common,fury,,unit,trifarian,noxus,,,,,4,4,,4,4,[Legion] — I cost [2] less. (Get the effect if you've played another card this turn.),Riftbound Unit: Noxus Hopeful. [Legion] — I cost [2] less. (Get the effect if you've played another card this turn.)
+Perched Grimwyrm,SFD-015/221,https://riftdecks.com/cards/details-perched-grimwyrm,uncommon,fury,,unit,dragon,shadowisles,,,,,4,4,,4,5,Play me only to a battlefield you conquered this turn.  (You can't play me anywhere else.) ,Riftbound Unit: Perched Grimwyrm. Play me only to a battlefield you conquered this turn. (You can't play me anywhere else.)
+Prize of Progress,SFD-075/221,https://riftdecks.com/cards/details-prize-of-progress,uncommon,mind,,unit,mech,piltover,,,,,4,4,C,4C,3,"When you use an activated ability of a gear, give me +1 [S] this turn.","Riftbound Unit: Prize of Progress. When you use an activated ability of a gear, give me +1 [S] this turn."
+Raging Firebrand,OGN-031/298,https://riftdecks.com/cards/details-raging-firebrand,rare,fury,,unit,dragon,mounttargon,,,,,6,6,C,6C,4,"When you play me, the next spell you play this turn costs [5] less.","Riftbound Unit: Raging Firebrand. When you play me, the next spell you play this turn"
+Raging Soul,OGN-019/298,https://riftdecks.com/cards/details-raging-soul,uncommon,fury,,unit,spirit,shadowisles,,,,,4,4,,4,4,"If you've discarded a card this turn, I have [Assault] and [Ganking]. (+1 [S] while I'm an attacker. I can move from battlefield to battlefield.)","Riftbound Unit: Raging Soul. If you've discarded a card this turn, I have [Assault] and [Ganking]. (+1 [S] while I'm an attacker. I can move from battlefield to battlefield.)"
+Ravenbloom Student,OGN-103/298,https://riftdecks.com/cards/details-ravenbloom-student,uncommon,mind,,unit,noxus,,,,,,2,2,,2,2,"When you play a spell, give me +1 [S] this turn.","Riftbound Unit: Ravenbloom Student. When you play a spell, give me +1 [S] this turn."
+Ribbon Dancer,SFD-038/221,https://riftdecks.com/cards/details-ribbon-dancer,common,calm,,unit,ionia,,,,,,3,3,,3,3,"When I move to a battlefield, give another friendly unit +1 [S] this turn.","Riftbound Unit: Ribbon Dancer. When I move to a battlefield, give another friendly unit +1 [S] this turn."
+Scrapyard Champion,OGN-020/298,https://riftdecks.com/cards/details-scrapyard-champion,uncommon,fury,,unit,mech,bandlecity,,,,,5,5,C,5C,5,"[Legion] — When you play me, discard 2, then draw 2. (Get the effect if you've played another card this turn.)","Riftbound Unit: Scrapyard Champion. [Legion] — When you play me, discard 2, then draw 2. (Get the effect if you've played another card this turn.)"
+"Sivir, Mercenary",SFD-143a/221,https://riftdecks.com/cards/details-sivir-mercenary,showcase,chaos,,unit,sivir,shurima,,,,champion,4,4,C,4C,4,"[Accelerate]  (You may pay \[1]\[C] as an additional cost to have me enter ready.) 
+If you've spent at least \[A]\[A] this turn, I have +2 [S] and [Ganking].  (I can move from battlefield to battlefield.) ","Riftbound Unit: Sivir, Mercenary. [Accelerate] (You may pay [1][C] as an additional cost to have me enter ready.)
+If you've spent at least [A][A] this turn, I have +2 [S] and [Ganking]. (I can move from battlefield to battlefield.)"
+Solari Chief,OGN-225/298,https://riftdecks.com/cards/details-solari-chief,uncommon,order,,unit,mounttargon,,,,,,5,5,C,5C,4,"When you play me, choose an enemy unit. If it is stunned, kill it. Otherwise, stun it. (It doesn't deal combat damage this turn.)","Riftbound Unit: Solari Chief. When you play me, choose an enemy unit. If it is stunned, kill it. Otherwise, stun it. (It doesn't deal combat damage this turn.)"
+Solari Shieldbearer,OGN-051/298,https://riftdecks.com/cards/details-solari-shieldbearer,common,calm,,unit,mounttargon,,,,,,3,3,,3,2,"When you play me, stun a unit. (It doesn't deal combat damage this turn.)","Riftbound Unit: Solari Shieldbearer. When you play me, stun a unit. (It doesn't deal combat damage this turn.)"
+"Teemo, Scout",OGN-197/298,https://riftdecks.com/cards/details-teemo-scout,rare,chaos,,unit,yordle,teemo,bandlecity,,,champion,2,2,,2,1,"[Hidden] (Hide now for [A] to react with later for [0].)
+When you play me, give me +3 [S] this turn.","Riftbound Unit: Teemo, Scout. [Hidden] (Hide now for [A] to react with later for [0].)
+When you play me, give me +3 [S] this turn."
+Thousand-Tailed Watcher,OGN-116/298,https://riftdecks.com/cards/details-thousand-tailed-watcher,rare,mind,,unit,ionia,,,,,,7,7,C,7C,7,"[Accelerate] (You may pay \[1]\[C] as an additional cost to have me enter ready.)
+When you play me, give enemy units -3 [S] this turn, to a minimum of 1 [S].""",Riftbound Unit: Thousand-Tailed Watcher. [Accelerate] (You may pay [1][C] as an additional cost to have me enter ready.)
+Trifarian Gloryseeker,OGN-217/298,https://riftdecks.com/cards/details-trifarian-gloryseeker,common,order,,unit,trifarian,noxus,,,,,2,2,,2,2,"[Legion] — When you play me, buff me. (If I don't have a buff, I get a +1 [S] buff. Get the effect if you've played another card this turn.)","Riftbound Unit: Trifarian Gloryseeker. [Legion] — When you play me, buff me. (If I don't have a buff, I get a +1 [S] buff. Get the effect if you've played another card this turn.)"
+"Udyr, Wildman",OGN-157/298,https://riftdecks.com/cards/details-udyr-wildman,rare,body,,unit,udyr,freljord,,,,champion,6,6,C,6C,6,"Spend my buff: Choose one you've not chosen this turn —
+\* Deal 2 to a unit at a battlefield.
+\* Stun a unit at a battlefield.
+\* Ready me.
+\* Give me [Ganking] this turn.","Riftbound Unit: Udyr, Wildman. Spend my buff: Choose one you've not chosen this turn —
+* Deal 2 to a unit at a battlefield.
+* Stun a unit at a battlefield.
+* Ready me.
+* Give me [Ganking] this turn."
+Undertitan,SFD-175/221,https://riftdecks.com/cards/details-undertitan,rare,order,,unit,thevoid,,,,,,6,6,C,6C,5,"When you play me, give your other units +2 [S] this turn.
+As I'm revealed from your deck, [Add] [2].","Riftbound Unit: Undertitan. When you play me, give your other units +2 [S] this turn.
+As I'm revealed from your deck, [Add] [2]."
+Vanguard Captain,OGN-218/298,https://riftdecks.com/cards/details-vanguard-captain,common,order,,unit,elite,demacia,,,,,3,3,C,3C,3,"[Legion] — When you play me, play two 1 [S] Recruit unit tokens here. (Get the effect if you've played another card this turn.)","Riftbound Unit: Vanguard Captain. [Legion] — When you play me, play two 1 [S] Recruit unit tokens here. (Get the effect if you've played another card this turn.)"
+"Vi, Destructive",OGN-036/298,https://riftdecks.com/cards/details-vi-destructive,rare,fury,,unit,vi,piltover,,,,champion,2,2,C,2C,3,"[Ganking] (I can move from battlefield to battlefield.)
+Recycle 1 from your trash: Give me +1 [S] this turn.","Riftbound Unit: Vi, Destructive. [Ganking] (I can move from battlefield to battlefield.)
+Recycle 1 from your trash: Give me +1 [S] this turn."
+Whiteflame Protector,OGN-082/298,https://riftdecks.com/cards/details-whiteflame-protector,epic,calm,,unit,dragon,mounttargon,,,,,8,8,CC,8CC,8,"When you play me, give a unit +8 [S] this turn.","Riftbound Unit: Whiteflame Protector. When you play me, give a unit +8 [S] this turn."
