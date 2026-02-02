@@ -3637,31 +3637,73 @@ const resolveEffectText = (
   if (effectMentionsBuff(text)) {
     const targetsToApply: CardInstance[] = [];
 
-    if (selectedUnits.length > 0) targetsToApply.push(...selectedUnits);
-    else if (/\bme\b/i.test(text) || /\bthis\b/i.test(text)) {
+    // Check if this is a "buff another friendly unit" pattern (e.g., Pit Rookie)
+    const wantsAnotherFriendly = /\bbuff\s+another\s+friendly\s+unit\b/i.test(text);
+    // Check if buff should only apply if unit doesn't have a buff (Pit Rookie: "If it doesn't have a buff")
+    const onlyIfNoBuff = /if\s+it\s+doesn't\s+have\s+a\s+buff/i.test(text);
+
+    if (selectedUnits.length > 0) {
+      // Filter out source unit if "another" is specified
+      if (wantsAnotherFriendly && sourceUnit) {
+        targetsToApply.push(...selectedUnits.filter((u) => u.instanceId !== sourceUnit.instanceId));
+      } else {
+        targetsToApply.push(...selectedUnits);
+      }
+    } else if (/\bme\b/i.test(text) || /\bthis\b/i.test(text)) {
       if (sourceUnit) targetsToApply.push(sourceUnit);
     } else if (unitTarget) {
-      targetsToApply.push(unitTarget);
+      // Filter out source unit if "another" is specified
+      if (wantsAnotherFriendly && sourceUnit && unitTarget.instanceId === sourceUnit.instanceId) {
+        // Don't add source unit as target
+      } else {
+        targetsToApply.push(unitTarget);
+      }
+    } else if (wantsAnotherFriendly) {
+      // No explicit target selected, but effect wants "another friendly unit"
+      // This could happen if there are no other friendly units to target
+      // Mark as handled since the effect was recognized
+      game.log.unshift(`${ctx?.sourceCardName || "Effect"}: No valid target for buff (no other friendly units).`);
+      did = true;
     }
 
     const poroGate = lower.includes("if you control a poro") ? hasPoro : true;
     if (targetsToApply.length > 0 && poroGate) {
-      for (const u of targetsToApply) u.buffs += 1;
-      if (targetsToApply.length === 1) game.log.unshift(`${targetsToApply[0].name} got +1 might permanently (buff).`);
-      else game.log.unshift(`${controller} buffed ${targetsToApply.length} unit(s) (+1 might permanently).`);
-      did = true;
-      const friendlyBuffed = targetsToApply.filter((u) => u.owner === controller);
-      if (friendlyBuffed.length > 0) {
-        for (const u of friendlyBuffed) {
-          queueTriggersForEvent(
-              game,
-              controller,
-              (trig) => trig.includes("when you buff a friendly unit"),
-              (source) => source.ability?.effect_text,
-              [{ kind: "UNIT", owner: controller, instanceId: u.instanceId }],
-              hereBf
-          );
+      let buffedCount = 0;
+      for (const u of targetsToApply) {
+        // If "only if no buff" is specified, only buff units without existing buffs
+        if (onlyIfNoBuff && u.buffs > 0) {
+          game.log.unshift(`${u.name} already has a buff.`);
+          continue;
         }
+        u.buffs += 1;
+        buffedCount++;
+      }
+      if (buffedCount > 0) {
+        if (buffedCount === 1 && targetsToApply.length === 1) {
+          game.log.unshift(`${targetsToApply[0].name} got +1 might permanently (buff).`);
+        } else if (buffedCount === 1) {
+          const buffedUnit = targetsToApply.find((u) => u.buffs > 0);
+          if (buffedUnit) game.log.unshift(`${buffedUnit.name} got +1 might permanently (buff).`);
+        } else {
+          game.log.unshift(`${controller} buffed ${buffedCount} unit(s) (+1 might permanently).`);
+        }
+        did = true;
+        const friendlyBuffed = targetsToApply.filter((u) => u.owner === controller && u.buffs > 0);
+        if (friendlyBuffed.length > 0) {
+          for (const u of friendlyBuffed) {
+            queueTriggersForEvent(
+                game,
+                controller,
+                (trig) => trig.includes("when you buff a friendly unit"),
+                (source) => source.ability?.effect_text,
+                [{ kind: "UNIT", owner: controller, instanceId: u.instanceId }],
+                hereBf
+            );
+          }
+        }
+      } else if (onlyIfNoBuff) {
+        // All targets already had buffs
+        did = true; // Effect resolved, just didn't apply buffs
       }
     } else if (isUpTo) {
       did = true;
