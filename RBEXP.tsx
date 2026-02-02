@@ -326,6 +326,13 @@ interface GameState {
   damageKillEffects: { controller: PlayerId; untilTurn: number }[];
   lastCombatExcessDamage: Record<PlayerId, number>;
   lastCombatExcessDamageTurn: number;
+  
+  // Weaponmaster pending choice (optional equip after playing unit with Weaponmaster)
+  pendingWeaponmasterChoice?: {
+    unitInstanceId: string;
+    unitOwner: PlayerId;
+    availableGearIds: string[];
+  } | null;
 }
 
 // ----------------------------- Helpers -----------------------------
@@ -6697,6 +6704,28 @@ export default function RiftboundGame() {
       overrideEnergyCost = Math.max(1, base - battlefieldSpellDiscount);
     }
 
+    // Sky Splitter: "This spell's Energy cost is reduced by the highest Might among units you control."
+    if (/energy cost.*reduced by.*highest might/i.test(effectLower)) {
+      const allUnits = [...p.base.units, ...d.battlefields.flatMap(bf => bf.units[pid])];
+      const maxMight = Math.max(0, ...allUnits.map(u => u.stats?.might || 0));
+      if (maxMight > 0) {
+        const base = overrideEnergyCost ?? card.cost ?? 0;
+        overrideEnergyCost = Math.max(0, base - maxMight);
+        d.log.unshift(`${card.name} cost reduced by ${maxMight} (highest Might).`);
+      }
+    }
+
+    // Rhasa the Sunderer: "I cost [1] less for each card in your trash."
+    const rawText = (card.ability?.raw_text || "").toLowerCase();
+    if (/cost.*less for each card in.*trash/i.test(rawText)) {
+      const trashCount = p.trash.length;
+      if (trashCount > 0) {
+        const base = overrideEnergyCost ?? card.cost ?? 0;
+        overrideEnergyCost = Math.max(0, base - trashCount);
+        d.log.unshift(`${card.name} cost reduced by ${trashCount} (cards in trash).`);
+      }
+    }
+
     const baseEnergyCost = overrideEnergyCost ?? (card.cost ?? 0);
     const basePowerCost = overridePowerCost ?? (card.stats.power ?? 0);
     const additionalCost = resolveAdditionalCostsForPlay(d, pid, card, effectTextRaw, baseEnergyCost, basePowerCost);
@@ -6793,6 +6822,8 @@ export default function RiftboundGame() {
     if (card.type === "Unit") {
       card.isReady = wantsAccelerate;
       const raw = `${card.ability?.effect_text || ""} ${card.ability?.raw_text || ""}`.toLowerCase();
+      
+      // Conditional entry ready checks
       if (raw.includes("if an opponent controls a battlefield") && raw.includes("i enter ready")) {
         const opponent = otherPlayer(pid);
         const opponentControls = d.battlefields.some((bf) => bf.controller === opponent);
@@ -6801,6 +6832,45 @@ export default function RiftboundGame() {
       if (raw.includes("if an opponent's score is within 3 points of the victory score") && raw.includes("i enter ready")) {
         const opponent = otherPlayer(pid);
         if (d.players[opponent].points >= d.victoryScore - 3) card.isReady = true;
+      }
+      
+      // Xin Zhao: "I enter ready if you have two or more other units in your base."
+      if (raw.includes("enter ready if you have two or more other units in your base") ||
+          raw.includes("enter ready if you have 2 or more other units in your base") ||
+          raw.includes("enter ready if you have two+ other units in your base")) {
+        const otherUnitsInBase = p.base.units.filter(u => u.instanceId !== card.instanceId).length;
+        if (otherUnitsInBase >= 2) {
+          card.isReady = true;
+          d.log.unshift(`${card.name} enters ready (2+ other units in base).`);
+        }
+      }
+      
+      // Direwing: "I enter ready if you control another Dragon."
+      if (raw.includes("enter ready if you control another dragon")) {
+        const allUnits = [...p.base.units, ...d.battlefields.flatMap(bf => bf.units[pid])];
+        const hasDragon = allUnits.some(u => 
+          u.instanceId !== card.instanceId && 
+          (u.tags?.some(s => s.toLowerCase() === "dragon") || 
+           (u.ability?.raw_text || "").toLowerCase().includes("dragon"))
+        );
+        if (hasDragon) {
+          card.isReady = true;
+          d.log.unshift(`${card.name} enters ready (controls another Dragon).`);
+        }
+      }
+      
+      // Breakneck Mech: "I enter ready if you control another Mech."
+      if (raw.includes("enter ready if you control another mech")) {
+        const allUnits = [...p.base.units, ...d.battlefields.flatMap(bf => bf.units[pid])];
+        const hasMech = allUnits.some(u => 
+          u.instanceId !== card.instanceId && 
+          (u.tags?.some(s => s.toLowerCase() === "mech") || 
+           (u.ability?.raw_text || "").toLowerCase().includes("mech"))
+        );
+        if (hasMech) {
+          card.isReady = true;
+          d.log.unshift(`${card.name} enters ready (controls another Mech).`);
+        }
       }
     }
     if (card.type === "Gear") card.isReady = true;
@@ -7674,6 +7744,25 @@ export default function RiftboundGame() {
       }
     }
 
+    // 5) Weaponmaster keyword: "When they're played, you may [Equip] a gear to them."
+    // This allows the player to attach a gear from hand/base to the unit when played.
+    if (hasKeyword(card, "Weaponmaster") && card.type === "Unit") {
+      const p = d.players[item.controller];
+      // Find available gear in hand or base that can be equipped
+      const availableGear = [
+        ...p.hand.filter(c => c.type === "Gear"),
+        ...p.base.gear
+      ];
+      if (availableGear.length > 0) {
+        // Queue a choice for the player to equip gear (optional)
+        d.pendingWeaponmasterChoice = {
+          unitInstanceId: card.instanceId,
+          unitOwner: item.controller,
+          availableGearIds: availableGear.map(g => g.instanceId),
+        };
+        d.log.unshift(`${card.name} has Weaponmaster - you may equip a gear to it.`);
+      }
+    }
 
   };
 
@@ -11376,7 +11465,15 @@ export default function RiftboundGame() {
       "Mighty",
       "Burn",
       "Burnout",
-      "Burn",
+      "Play",
+      "Equip",
+      "Alone",
+      "Weaponmaster",
+      "Quick-Draw",
+      "Repeat",
+      "Fated",
+      "Overwhelm",
+      "Lifesteal",
     ]);
     const missingKeywords = uniq(
         (keywords || [])
