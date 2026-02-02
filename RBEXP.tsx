@@ -163,8 +163,15 @@ interface RuneInstance {
 
 type RunePayKind = "EXHAUST" | "RECYCLE" | "BOTH";
 
+interface SealPayInfo {
+  instanceId: string;
+  domain: Domain; // The domain of power this Seal provides
+  amount: number; // Usually 1
+}
+
 interface AutoPayPlan {
   runeUses: Record<string, RunePayKind>; // key = rune.instanceId
+  sealUses: SealPayInfo[]; // Seals to exhaust for power
   recycleCount: number;
   exhaustCount: number;
   exhaustOnlyCount: number;
@@ -2582,10 +2589,62 @@ const canAffordWithPool = (
 };
 
 /**
+ * Helper to determine the domain a Seal provides when exhausted.
+ * Parses the Seal's ability text to find "add X domain rune/power" patterns.
+ * Falls back to the Seal's printed domain if no pattern is found.
+ */
+const getSealPowerDomain = (gear: CardInstance, playerDomains: Domain[]): { domain: Domain; amount: number } | null => {
+  const raw = (gear.ability?.raw_text || gear.ability?.effect_text || "").toString();
+  const clean = raw
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\[[^\]]+\]/g, (m) => m.slice(1, -1)) // [Add] -> Add
+      .replace(/[—–]/g, "-")
+      .replace(/[:.]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  // Check for domain-specific add pattern
+  const mDom = clean.match(/\badd\s+(\d+)?\s*(body|calm|chaos|fury|mind|order|class)\s+(?:rune|power)\b/);
+  if (mDom) {
+    const amt = Math.max(1, parseInt(mDom[1] || "1", 10) || 1);
+    if (mDom[2] === "class") {
+      const dom = playerDomains[0] || "Fury";
+      return { domain: dom, amount: amt };
+    }
+    return { domain: clampDomain(mDom[2]), amount: amt };
+  }
+
+  // Check for any-domain add pattern
+  const mAny = clean.match(/\badd\s+(\d+)\s+(?:rune|power)\s+of\s+any\s+(?:type|domain|color)\b/) ||
+      clean.match(/\badd\s+(\d+)\s+any\s+(?:rune|power)\b/);
+  if (mAny) {
+    const amt = Math.max(1, parseInt(mAny[1], 10) || 1);
+    const doms = parseDomains(gear.domain).map(clampDomain).filter((x) => x !== "Colorless");
+    const dom = doms[0] || playerDomains[0] || "Fury";
+    return { domain: dom, amount: amt };
+  }
+
+  // Fallback: if it looks like a Seal, use its printed domain
+  const looksLikeSeal = gear.name.toLowerCase().includes("seal") || /\bseal\b/i.test(raw) ||
+      (gear.ability?.keywords || []).some((k) => k.toLowerCase().includes("add"));
+  if (looksLikeSeal) {
+    const doms = parseDomains(gear.domain).map(clampDomain).filter((x) => x !== "Colorless");
+    const dom = doms[0] || playerDomains[0] || "Fury";
+    return { domain: dom, amount: 1 };
+  }
+
+  return null;
+};
+
+/**
  * Compute a minimal-ish rune auto-payment plan that generates enough resources in Rune Pool to pay a cost spec.
  *
  * We search over subsets of runes to recycle (<= 12 in Duel) and then use the smallest number of
  * ready runes to exhaust for any remaining energy shortfall, preferring to "EXHAUST+RECYCLE" the same rune.
+ *
+ * Now also considers Seals as an alternative to rune recycling for generating power.
+ * If a Seal is used, rune recycling is disabled (Seals are meant as an alternative to recycling).
  */
 const buildAutoPayPlan = (
     pool: RunePool,
@@ -2597,14 +2656,18 @@ const buildAutoPayPlan = (
       additionalPowerByDomain: Partial<Record<Domain, number>>;
       additionalPowerAny: number;
     },
-    opts?: { sealExhaustedThisTurn?: boolean }
+    opts?: { sealExhaustedThisTurn?: boolean; seals?: CardInstance[]; playerDomains?: Domain[] }
 ): AutoPayPlan | null => {
   // If a Seal was exhausted this turn, prevent recycling runes (Seals are meant as an alternative to recycling)
   const noRecycle = opts?.sealExhaustedThisTurn ?? false;
+  const seals = opts?.seals || [];
+  const playerDomains = opts?.playerDomains || ["Fury"];
+
   // Already affordable with existing pool
   if (canAffordWithPool(pool, spec)) {
     return {
       runeUses: {},
+      sealUses: [],
       recycleCount: 0,
       exhaustCount: 0,
       exhaustOnlyCount: 0,
@@ -2614,7 +2677,10 @@ const buildAutoPayPlan = (
   }
 
   const n = runesInPlay.length;
-  if (n === 0) return null;
+  const readySeals = seals.filter((g) => g.isReady && getSealPowerDomain(g, playerDomains) !== null);
+
+  // If no runes and no seals, can't pay
+  if (n === 0 && readySeals.length === 0) return null;
 
   const energyShortfall = Math.max(0, spec.energyNeed - pool.energy);
   const readyIdsAll: string[] = runesInPlay.filter((r) => r.isReady).map((r) => r.instanceId);
@@ -2623,8 +2689,7 @@ const buildAutoPayPlan = (
     return null;
   }
 
-  const maxMask = 1 << n;
-  let best: { plan: AutoPayPlan; score: [number, number, number] } | null = null;
+  let best: { plan: AutoPayPlan; score: [number, number, number, number] } | null = null;
 
   const popcount = (x: number): number => {
     let c = 0;
@@ -2635,74 +2700,105 @@ const buildAutoPayPlan = (
     return c;
   };
 
-  for (let mask = 0; mask < maxMask; mask++) {
-    const recycleCount = popcount(mask);
+  // Try plans with Seals first (preferred over recycling)
+  // For each subset of ready Seals, try to find a plan
+  const sealMaskMax = 1 << readySeals.length;
+  const runeMaskMax = 1 << n;
 
-    // If Seal was exhausted, only allow mask=0 (no recycling)
-    if (noRecycle && mask !== 0) continue;
+  for (let sealMask = 0; sealMask < sealMaskMax; sealMask++) {
+    const sealCount = popcount(sealMask);
+    const usedSeals: SealPayInfo[] = [];
+    const sealPowerAdds = emptyPowerAdds();
 
-    // quick pruning: if we already have a plan with fewer recycles, skip
-    if (best && recycleCount > best.score[0]) continue;
-
-    const powerAdds = emptyPowerAdds();
-    const recycledIds: string[] = [];
-    const readyRecycledIds: string[] = [];
-    const readyNonRecycledIds: string[] = [];
-
-    for (let i = 0; i < n; i++) {
-      const r = runesInPlay[i];
-      const isRecycled = (mask & (1 << i)) !== 0;
-      if (isRecycled) {
-        recycledIds.push(r.instanceId);
-        powerAdds[r.domain] = (powerAdds[r.domain] || 0) + 1;
-        if (r.isReady) readyRecycledIds.push(r.instanceId);
-      } else {
-        if (r.isReady) readyNonRecycledIds.push(r.instanceId);
+    for (let i = 0; i < readySeals.length; i++) {
+      if ((sealMask & (1 << i)) !== 0) {
+        const seal = readySeals[i];
+        const sealInfo = getSealPowerDomain(seal, playerDomains);
+        if (sealInfo) {
+          usedSeals.push({ instanceId: seal.instanceId, domain: sealInfo.domain, amount: sealInfo.amount });
+          sealPowerAdds[sealInfo.domain] = (sealPowerAdds[sealInfo.domain] || 0) + sealInfo.amount;
+        }
       }
     }
 
-    // Decide exhaust assignments (exactly the energy shortfall), preferring to exhaust runes we already recycle.
-    let remainingEnergy = energyShortfall;
-    const bothIds: string[] = [];
-    const exhaustOnlyIds: string[] = [];
+    // If using any Seals, disable rune recycling
+    const disableRecycle = noRecycle || sealCount > 0;
 
-    const takeBoth = Math.min(remainingEnergy, readyRecycledIds.length);
-    for (let i = 0; i < takeBoth; i++) bothIds.push(readyRecycledIds[i]);
-    remainingEnergy -= takeBoth;
+    for (let runeMask = 0; runeMask < runeMaskMax; runeMask++) {
+      const recycleCount = popcount(runeMask);
 
-    if (remainingEnergy > readyNonRecycledIds.length) {
-      // Not enough ready non-recycled runes to cover the remaining energy shortfall.
-      continue;
-    }
-    for (let i = 0; i < remainingEnergy; i++) exhaustOnlyIds.push(readyNonRecycledIds[i]);
+      // If recycling is disabled, only allow runeMask=0
+      if (disableRecycle && runeMask !== 0) continue;
 
-    const addsEnergy = bothIds.length + exhaustOnlyIds.length;
+      // Quick pruning: if we already have a better plan, skip
+      if (best && sealCount > best.score[0]) continue;
+      if (best && sealCount === best.score[0] && recycleCount > best.score[1]) continue;
 
-    const newPool = clonePool(pool);
-    newPool.energy += addsEnergy;
-    newPool.power = addPowerRecord(newPool.power as any, powerAdds);
+      const powerAdds = { ...sealPowerAdds };
+      const recycledIds: string[] = [];
+      const readyRecycledIds: string[] = [];
+      const readyNonRecycledIds: string[] = [];
 
-    if (!canAffordWithPool(newPool, spec)) continue;
+      for (let i = 0; i < n; i++) {
+        const r = runesInPlay[i];
+        const isRecycled = (runeMask & (1 << i)) !== 0;
+        if (isRecycled) {
+          recycledIds.push(r.instanceId);
+          powerAdds[r.domain] = (powerAdds[r.domain] || 0) + 1;
+          if (r.isReady) readyRecycledIds.push(r.instanceId);
+        } else {
+          if (r.isReady) readyNonRecycledIds.push(r.instanceId);
+        }
+      }
 
-    // Build mapping (for UI glow + application)
-    const runeUses: Record<string, RunePayKind> = {};
-    for (const rid of recycledIds) runeUses[rid] = "RECYCLE";
-    for (const rid of bothIds) runeUses[rid] = "BOTH";
-    for (const rid of exhaustOnlyIds) runeUses[rid] = "EXHAUST";
+      // Decide exhaust assignments (exactly the energy shortfall), preferring to exhaust runes we already recycle.
+      let remainingEnergy = energyShortfall;
+      const bothIds: string[] = [];
+      const exhaustOnlyIds: string[] = [];
 
-    const plan: AutoPayPlan = {
-      runeUses,
-      recycleCount,
-      exhaustCount: addsEnergy,
-      exhaustOnlyCount: exhaustOnlyIds.length,
-      addsEnergy,
-      addsPower: powerAdds,
-    };
+      const takeBoth = Math.min(remainingEnergy, readyRecycledIds.length);
+      for (let i = 0; i < takeBoth; i++) bothIds.push(readyRecycledIds[i]);
+      remainingEnergy -= takeBoth;
 
-    // Score: (1) fewer recycled runes, (2) fewer exhaust-only (use BOTH when possible), (3) fewer total used runes
-    const score: [number, number, number] = [recycleCount, exhaustOnlyIds.length, recycleCount + addsEnergy];
-    if (!best || score[0] < best.score[0] || (score[0] === best.score[0] && score[1] < best.score[1]) || (score[0] === best.score[0] && score[1] === best.score[1] && score[2] < best.score[2])) {
-      best = { plan, score };
+      if (remainingEnergy > readyNonRecycledIds.length) {
+        // Not enough ready non-recycled runes to cover the remaining energy shortfall.
+        continue;
+      }
+      for (let i = 0; i < remainingEnergy; i++) exhaustOnlyIds.push(readyNonRecycledIds[i]);
+
+      const addsEnergy = bothIds.length + exhaustOnlyIds.length;
+
+      const newPool = clonePool(pool);
+      newPool.energy += addsEnergy;
+      newPool.power = addPowerRecord(newPool.power as any, powerAdds);
+
+      if (!canAffordWithPool(newPool, spec)) continue;
+
+      // Build mapping (for UI glow + application)
+      const runeUses: Record<string, RunePayKind> = {};
+      for (const rid of recycledIds) runeUses[rid] = "RECYCLE";
+      for (const rid of bothIds) runeUses[rid] = "BOTH";
+      for (const rid of exhaustOnlyIds) runeUses[rid] = "EXHAUST";
+
+      const plan: AutoPayPlan = {
+        runeUses,
+        sealUses: usedSeals,
+        recycleCount,
+        exhaustCount: addsEnergy,
+        exhaustOnlyCount: exhaustOnlyIds.length,
+        addsEnergy,
+        addsPower: powerAdds,
+      };
+
+      // Score: (1) fewer seals used, (2) fewer recycled runes, (3) fewer exhaust-only, (4) fewer total used
+      const score: [number, number, number, number] = [sealCount, recycleCount, exhaustOnlyIds.length, recycleCount + addsEnergy];
+      if (!best ||
+          score[0] < best.score[0] ||
+          (score[0] === best.score[0] && score[1] < best.score[1]) ||
+          (score[0] === best.score[0] && score[1] === best.score[1] && score[2] < best.score[2]) ||
+          (score[0] === best.score[0] && score[1] === best.score[1] && score[2] === best.score[2] && score[3] < best.score[3])) {
+        best = { plan, score };
+      }
     }
   }
 
@@ -2711,6 +2807,18 @@ const buildAutoPayPlan = (
 
 const applyAutoPayPlan = (game: GameState, player: PlayerId, plan: AutoPayPlan) => {
   const p = game.players[player];
+
+  // Apply Seal exhaustions first (Seals provide power, not energy)
+  for (const sealUse of plan.sealUses) {
+    const gidx = p.base.gear.findIndex((g) => g.instanceId === sealUse.instanceId);
+    if (gidx < 0) continue;
+    const gear = p.base.gear[gidx];
+    if (!gear.isReady) continue;
+    gear.isReady = false;
+    p.runePool.power[sealUse.domain] = (p.runePool.power[sealUse.domain] || 0) + sealUse.amount;
+    p.sealExhaustedThisTurn = true; // Prevent further rune recycling this turn
+    game.log.unshift(`${player} auto-exhausted ${gear.name} to add ${sealUse.amount} ${sealUse.domain} power.`);
+  }
 
   const uses = plan.runeUses;
   const entries = Object.entries(uses) as Array<[string, RunePayKind]>;
@@ -6703,8 +6811,8 @@ export default function RiftboundGame() {
         powerDomainsAllowed: anyDomains,
         additionalPowerByDomain: {},
         additionalPowerAny: 1,
-      }, { sealExhaustedThisTurn: p.sealExhaustedThisTurn });
-      if (plan && Object.keys(plan.runeUses).length > 0) {
+      }, { sealExhaustedThisTurn: p.sealExhaustedThisTurn, seals: p.base.gear, playerDomains: p.domains });
+      if (plan && (Object.keys(plan.runeUses).length > 0 || plan.sealUses.length > 0)) {
         applyAutoPayPlan(d, pid, plan);
         d.log.unshift(`${pid} auto-paid the Hide cost.`);
       }
@@ -7085,17 +7193,17 @@ export default function RiftboundGame() {
 
     let affordable = canAffordCardWithChoices(d, pid, card, costOpts);
     if (!affordable && opts?.autoPay) {
-      // Attempt to auto-pay with runes in play.
+      // Attempt to auto-pay with runes in play and/or Seals.
       const plan = buildAutoPayPlan(p.runePool, p.runesInPlay, {
         energyNeed: (overrideEnergyCost ?? card.cost) + (wantsAccelerate ? 1 : 0),
         basePowerNeed: overridePowerCost ?? (card.stats.power ?? 0),
         powerDomainsAllowed,
         additionalPowerByDomain: extraPowerByDomain,
         additionalPowerAny: deflectTax,
-      }, { sealExhaustedThisTurn: p.sealExhaustedThisTurn });
-      if (plan && Object.keys(plan.runeUses).length > 0) {
+      }, { sealExhaustedThisTurn: p.sealExhaustedThisTurn, seals: p.base.gear, playerDomains: p.domains });
+      if (plan && (Object.keys(plan.runeUses).length > 0 || plan.sealUses.length > 0)) {
         applyAutoPayPlan(d, pid, plan);
-        d.log.unshift(`${pid} auto-paid runes for ${card.name}.`);
+        d.log.unshift(`${pid} auto-paid resources for ${card.name}.`);
       }
       affordable = canAffordCardWithChoices(d, pid, card, costOpts);
     }
@@ -7701,7 +7809,11 @@ export default function RiftboundGame() {
 
     const scored = candidates
         .map((intent) => ({ intent, score: scoreIntent(intent) }))
+        .filter((x) => x.score > -999000) // Filter out intents that failed simulation (e.g., unaffordable plays)
         .sort((a, b) => b.score - a.score);
+
+    // If all intents failed, return null to avoid attempting unaffordable plays
+    if (scored.length === 0) return null;
 
     if (difficulty === "EASY") {
       // Pick randomly among the top few.
@@ -9994,7 +10106,7 @@ export default function RiftboundGame() {
                             powerDomainsAllowed: domainsAllowed,
                             additionalPowerByDomain: {},
                             additionalPowerAny: 0,
-                          }, { sealExhaustedThisTurn: meState.sealExhaustedThisTurn });
+                          }, { sealExhaustedThisTurn: meState.sealExhaustedThisTurn, seals: meState.base.gear, playerDomains: meState.domains });
 
                           if (plan) setHoverPayPlan({ cardInstanceId: c.instanceId, plan });
                           else setHoverPayPlan(null);
