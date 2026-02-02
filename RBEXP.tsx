@@ -1118,11 +1118,18 @@ type TargetRequirement =
     | { kind: "UNIT_HERE_FRIENDLY"; count: number; excludeSelf?: boolean }
     | { kind: "UNIT_FRIENDLY"; count: number; excludeSelf?: boolean }  // Friendly unit anywhere (e.g., "a friendly unit")
     | { kind: "UNIT_ENEMY"; count: number; excludeSelf?: boolean }     // Enemy unit anywhere (e.g., "an enemy unit")
+    | { kind: "UNIT_FRIENDLY_AND_ENEMY" }  // One friendly unit AND one enemy unit (e.g., Challenge spell)
     | { kind: "BATTLEFIELD"; count: number };
 
 const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?: boolean }): TargetRequirement => {
   const text = (effectTextRaw || "").toLowerCase();
   if (!text.trim()) return { kind: "NONE" };
+
+  // Check for "Choose a friendly unit and an enemy unit" pattern (Challenge spell)
+  // This needs to come before other checks since it requires TWO targets
+  const wantsFriendlyAndEnemy = /choose\s+a\s+friendly\s+unit\s+and\s+an?\s+enemy\s+unit/i.test(text) ||
+      /choose\s+an?\s+enemy\s+unit\s+and\s+a\s+friendly\s+unit/i.test(text);
+  if (wantsFriendlyAndEnemy) return { kind: "UNIT_FRIENDLY_AND_ENEMY" };
 
   // Heuristic patterns – deliberately conservative.
   const needsUnit =
@@ -4081,6 +4088,41 @@ const resolveEffectText = (
   }
 
 
+// --------------------- Challenge: Mutual Damage ---------------------
+  // "Choose a friendly unit and an enemy unit. They deal damage equal to their Mights to each other."
+  if (/choose\s+a\s+friendly\s+unit\s+and\s+an?\s+enemy\s+unit.*they\s+deal\s+damage\s+equal\s+to\s+their\s+mights?\s+to\s+each\s+other/i.test(lower)) {
+    // Expect two targets: [0] = friendly, [1] = enemy
+    const friendlyTarget = rawTargets[0];
+    const enemyTarget = rawTargets[1];
+    
+    if (friendlyTarget?.kind === "UNIT" && enemyTarget?.kind === "UNIT") {
+      const friendlyLoc = locateUnit(game, friendlyTarget.owner, friendlyTarget.instanceId);
+      const enemyLoc = locateUnit(game, enemyTarget.owner, enemyTarget.instanceId);
+      
+      if (friendlyLoc && enemyLoc) {
+        const friendlyUnit = friendlyLoc.unit;
+        const enemyUnit = enemyLoc.unit;
+        
+        const friendlyMight = effectiveMight(friendlyUnit, { role: "NONE", game });
+        const enemyMight = effectiveMight(enemyUnit, { role: "NONE", game });
+        
+        // Apply damage: friendly unit takes enemy's might, enemy unit takes friendly's might
+        friendlyUnit.damage += enemyMight;
+        enemyUnit.damage += friendlyMight;
+        
+        game.log.unshift(`Challenge: ${friendlyUnit.name} (M${friendlyMight}) and ${enemyUnit.name} (M${enemyMight}) deal damage to each other.`);
+        game.log.unshift(`${friendlyUnit.name} took ${enemyMight} damage, ${enemyUnit.name} took ${friendlyMight} damage.`);
+        did = true;
+      } else {
+        game.log.unshift("Challenge: One or both units no longer exist.");
+        did = true; // Mark as handled even if targets are gone
+      }
+    } else {
+      game.log.unshift("Challenge: Missing friendly or enemy target.");
+      did = true; // Mark as handled
+    }
+  }
+
 // --------------------- Damage ---------------------
   const conditionalDrawOnKill = (() => {
     const m = lower.match(/\bif\s+this\s+kills\s+it,\s*draw\s+(\d+)\b/);
@@ -5749,6 +5791,9 @@ export default function RiftboundGame() {
           return isFriendly;
         case "UNIT_ENEMY":
           return isEnemy;
+        case "UNIT_FRIENDLY_AND_ENEMY":
+          // For dual-target selection, return all units (filtering happens in UI)
+          return true;
         case "UNIT_ANYWHERE":
           return true;
         case "NONE":
@@ -5815,6 +5860,27 @@ export default function RiftboundGame() {
         return [scored[0].o.t];
       }
       return [opts[0].t];
+    }
+
+    // Handle UNIT_FRIENDLY_AND_ENEMY (Challenge spell) - needs two targets
+    if (req.kind === "UNIT_FRIENDLY_AND_ENEMY") {
+      const friendlyOpts = getUnitTargetOptions(d, controller, { kind: "UNIT_FRIENDLY", count: 1 }, ctxBf, restrictBf, excludeInstanceId);
+      const enemyOpts = getUnitTargetOptions(d, controller, { kind: "UNIT_ENEMY", count: 1 }, ctxBf, restrictBf, excludeInstanceId);
+      if (friendlyOpts.length === 0 || enemyOpts.length === 0) return [{ kind: "NONE" }];
+      
+      // Pick highest might friendly and highest might enemy for HARD+
+      if (difficulty === "HARD" || difficulty === "VERY_HARD") {
+        const scoredFriendly = friendlyOpts.map(o => {
+          const u = o.t.kind === "UNIT" ? locateUnit(d, o.t.owner, o.t.instanceId)?.unit : null;
+          return { o, might: u ? effectiveMight(u, { role: "NONE", game: d }) : 0 };
+        }).sort((a, b) => b.might - a.might);
+        const scoredEnemy = enemyOpts.map(o => {
+          const u = o.t.kind === "UNIT" ? locateUnit(d, o.t.owner, o.t.instanceId)?.unit : null;
+          return { o, might: u ? effectiveMight(u, { role: "NONE", game: d }) : 0 };
+        }).sort((a, b) => b.might - a.might);
+        return [scoredFriendly[0].o.t, scoredEnemy[0].o.t];
+      }
+      return [friendlyOpts[0].t, enemyOpts[0].t];
     }
 
     // Unit targets
@@ -9149,13 +9215,24 @@ export default function RiftboundGame() {
 
     const unitOptions = getUnitTargetOptions(g, item.controller, req, ctxBf, restrictBf, item.sourceInstanceId);
     const battlefieldOptions = getBattlefieldTargetOptions(g, restrictBf);
+    
+    // For UNIT_FRIENDLY_AND_ENEMY, get separate friendly and enemy options
+    const isDualTarget = req.kind === "UNIT_FRIENDLY_AND_ENEMY";
+    const friendlyOptions = isDualTarget 
+      ? getUnitTargetOptions(g, item.controller, { kind: "UNIT_FRIENDLY", count: 1 }, ctxBf, restrictBf, item.sourceInstanceId)
+      : [];
+    const enemyOptions = isDualTarget
+      ? getUnitTargetOptions(g, item.controller, { kind: "UNIT_ENEMY", count: 1 }, ctxBf, restrictBf, item.sourceInstanceId)
+      : [];
 
     const pickerDisabled = viewerId !== item.controller;
     const canConfirm =
         viewerId === item.controller &&
         canActAs(item.controller) &&
         req.kind !== "NONE" &&
-        pendingTargets[0]?.kind !== "NONE";
+        (isDualTarget 
+          ? (pendingTargets[0]?.kind !== "NONE" && pendingTargets[1]?.kind !== "NONE")
+          : pendingTargets[0]?.kind !== "NONE");
 
     return (
         <div
@@ -9191,29 +9268,80 @@ export default function RiftboundGame() {
             </div>
 
             {req.kind !== "NONE" ? (
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ fontSize: 12, opacity: 0.8 }}>Targets</div>
-                  <select
-                      disabled={pickerDisabled}
-                      style={{ width: "100%", padding: 6, marginTop: 6 }}
-                      value={pendingTargets[0]?.kind === "NONE" ? "" : JSON.stringify(pendingTargets[0])}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (!v) setPendingTargets([{ kind: "NONE" }]);
-                        else setPendingTargets([JSON.parse(v)]);
-                      }}
-                  >
-                    <option value="">—</option>
-                    {(req.kind === "BATTLEFIELD" ? battlefieldOptions : unitOptions).map((u) => (
-                        <option key={u.label} value={JSON.stringify(u.t)}>
-                          {u.label}
-                        </option>
-                    ))}
-                  </select>
-                  {pickerDisabled ? (
-                      <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>Waiting for {item.controller}…</div>
-                  ) : null}
-                </div>
+                isDualTarget ? (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 8 }}>Select a Friendly Unit AND an Enemy Unit</div>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, opacity: 0.7 }}>Friendly Unit</div>
+                        <select
+                            disabled={pickerDisabled}
+                            style={{ width: "100%", padding: 6, marginTop: 4 }}
+                            value={pendingTargets[0]?.kind === "NONE" ? "" : JSON.stringify(pendingTargets[0])}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              const newTarget = v ? JSON.parse(v) : { kind: "NONE" };
+                              setPendingTargets([newTarget, pendingTargets[1] || { kind: "NONE" }]);
+                            }}
+                        >
+                          <option value="">— Select Friendly —</option>
+                          {friendlyOptions.map((u) => (
+                              <option key={u.label} value={JSON.stringify(u.t)}>
+                                {u.label}
+                              </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, opacity: 0.7 }}>Enemy Unit</div>
+                        <select
+                            disabled={pickerDisabled}
+                            style={{ width: "100%", padding: 6, marginTop: 4 }}
+                            value={pendingTargets[1]?.kind === "NONE" ? "" : JSON.stringify(pendingTargets[1])}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              const newTarget = v ? JSON.parse(v) : { kind: "NONE" };
+                              setPendingTargets([pendingTargets[0] || { kind: "NONE" }, newTarget]);
+                            }}
+                        >
+                          <option value="">— Select Enemy —</option>
+                          {enemyOptions.map((u) => (
+                              <option key={u.label} value={JSON.stringify(u.t)}>
+                                {u.label}
+                              </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    {pickerDisabled ? (
+                        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>Waiting for {item.controller}…</div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>Targets</div>
+                    <select
+                        disabled={pickerDisabled}
+                        style={{ width: "100%", padding: 6, marginTop: 6 }}
+                        value={pendingTargets[0]?.kind === "NONE" ? "" : JSON.stringify(pendingTargets[0])}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (!v) setPendingTargets([{ kind: "NONE" }]);
+                          else setPendingTargets([JSON.parse(v)]);
+                        }}
+                    >
+                      <option value="">—</option>
+                      {(req.kind === "BATTLEFIELD" ? battlefieldOptions : unitOptions).map((u) => (
+                          <option key={u.label} value={JSON.stringify(u.t)}>
+                            {u.label}
+                          </option>
+                      ))}
+                    </select>
+                    {pickerDisabled ? (
+                        <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75 }}>Waiting for {item.controller}…</div>
+                    ) : null}
+                  </div>
+                )
             ) : null}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
