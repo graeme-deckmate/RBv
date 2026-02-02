@@ -295,6 +295,28 @@ interface ChainItem {
   // (except some manual helpers)
 }
 
+// Delayed triggers that fire on specific events this turn (e.g., Rally the Troops)
+type DelayedTriggerEvent = 
+  | "UNIT_PLAYED"       // When a friendly unit is played
+  | "UNIT_ENTERS"       // When a unit enters a battlefield
+  | "UNIT_ATTACKS"      // When a unit attacks
+  | "UNIT_DEFENDS"      // When a unit defends
+  | "SPELL_PLAYED"      // When a spell is played
+  | "CARD_DISCARDED"    // When a card is discarded
+  | "UNIT_TAKES_DAMAGE" // When any unit takes damage
+  | "UNIT_DIES";        // When a unit dies
+
+interface DelayedTrigger {
+  id: string;
+  controller: PlayerId;
+  event: DelayedTriggerEvent;
+  targetFilter?: "FRIENDLY" | "ENEMY" | "ANY";
+  effect: string;        // Effect text to resolve
+  untilTurn: number;     // Turn number when this expires
+  sourceCardName: string;
+  onlyOnce?: boolean;    // If true, remove after first trigger
+}
+
 interface GameState {
   step: Step;
   turnNumber: number;
@@ -337,6 +359,9 @@ interface GameState {
     unitOwner: PlayerId;
     availableGearIds: string[];
   } | null;
+  
+  // Delayed triggers that fire on specific events this turn
+  delayedTriggers: DelayedTrigger[];
 }
 
 // ----------------------------- Helpers -----------------------------
@@ -3703,6 +3728,49 @@ const resolveEffectText = (
     }
   }
 
+  // --------------------- Delayed Triggers ("this turn" effects) ---------------------
+  // Rally the Troops: "When a friendly unit is played this turn, buff it."
+  const unitPlayedTriggerMatch = lower.match(/when\s+a\s+friendly\s+unit\s+is\s+played\s+this\s+turn,\s*(.+?)(?:\.|$)/i);
+  if (unitPlayedTriggerMatch) {
+    const effectPart = unitPlayedTriggerMatch[1].trim();
+    game.delayedTriggers.push({
+      id: makeId("delayed"),
+      controller,
+      event: "UNIT_PLAYED",
+      targetFilter: "FRIENDLY",
+      effect: effectPart,
+      untilTurn: game.turnNumber,
+      sourceCardName: ctx?.sourceCardName || "Unknown",
+    });
+    game.log.unshift(`${controller} set a delayed trigger: when a friendly unit is played this turn, ${effectPart}.`);
+    did = true;
+  }
+
+  // Mask of Foresight: "When a friendly unit attacks or defends alone, give it +1 [S] this turn."
+  const attackDefendAloneTrigger = lower.match(/when\s+a\s+friendly\s+unit\s+attacks\s+or\s+defends\s+alone,\s*(.+?)(?:\.|$)/i);
+  if (attackDefendAloneTrigger) {
+    const effectPart = attackDefendAloneTrigger[1].trim();
+    game.delayedTriggers.push({
+      id: makeId("delayed"),
+      controller,
+      event: "UNIT_ATTACKS",
+      targetFilter: "FRIENDLY",
+      effect: effectPart + " (if alone)",
+      untilTurn: game.turnNumber + 999, // Permanent until gear is removed
+      sourceCardName: ctx?.sourceCardName || "Unknown",
+    });
+    game.delayedTriggers.push({
+      id: makeId("delayed"),
+      controller,
+      event: "UNIT_DEFENDS",
+      targetFilter: "FRIENDLY",
+      effect: effectPart + " (if alone)",
+      untilTurn: game.turnNumber + 999,
+      sourceCardName: ctx?.sourceCardName || "Unknown",
+    });
+    did = true;
+  }
+
 
 // --------------------- Damage ---------------------
   const conditionalDrawOnKill = (() => {
@@ -4759,6 +4827,7 @@ export default function RiftboundGame() {
       lastCombatExcessDamageTurn: 0,
       players,
       battlefields,
+      delayedTriggers: [],
     };
 
     // Initial hand: draw 4 each (setup).
@@ -4987,6 +5056,7 @@ export default function RiftboundGame() {
         lastCombatExcessDamageTurn: 0,
         players,
         battlefields,
+        delayedTriggers: [],
       };
 
       // Initial hand: draw 4 each (setup).
@@ -5185,6 +5255,7 @@ export default function RiftboundGame() {
         lastCombatExcessDamageTurn: 0,
         players,
         battlefields,
+        delayedTriggers: [],
       };
 
       drawCards(nextGame, "P1", 4);
@@ -5500,6 +5571,8 @@ export default function RiftboundGame() {
         }
       }
       d.damageKillEffects = [];
+      // Clear expired delayed triggers
+      d.delayedTriggers = d.delayedTriggers.filter(t => t.untilTurn > d.turnNumber);
     };
 
     switch (d.step) {
@@ -7884,6 +7957,53 @@ export default function RiftboundGame() {
           availableGearIds: availableGear.map(g => g.instanceId),
         };
         d.log.unshift(`${card.name} has Weaponmaster - you may equip a gear to it.`);
+      }
+    }
+
+    // 6) Fire delayed triggers for UNIT_PLAYED event (Rally the Troops, etc.)
+    if (card.type === "Unit") {
+      const triggersToFire = d.delayedTriggers.filter(t => 
+        t.event === "UNIT_PLAYED" && 
+        t.untilTurn >= d.turnNumber &&
+        (t.targetFilter === "ANY" || 
+         (t.targetFilter === "FRIENDLY" && t.controller === item.controller) ||
+         (t.targetFilter === "ENEMY" && t.controller !== item.controller))
+      );
+      
+      for (const trigger of triggersToFire) {
+        // Apply the effect to the played unit
+        const effectLower = trigger.effect.toLowerCase();
+        const unitLoc = locateUnit(d, item.controller, card.instanceId);
+        const unit = unitLoc?.unit;
+        
+        if (unit) {
+          // Handle common effects
+          if (/buff\s+(it|me|them)/i.test(effectLower)) {
+            if (unit.buffs === 0) {
+              unit.buffs = 1;
+              d.log.unshift(`${trigger.sourceCardName}: ${unit.name} was buffed (+1 might).`);
+            } else {
+              d.log.unshift(`${trigger.sourceCardName}: ${unit.name} already has a buff.`);
+            }
+          }
+          if (/give\s+(it|me|them)\s+\+?(\d+)\s+(might|\[s\])/i.test(effectLower)) {
+            const mightMatch = effectLower.match(/give\s+(it|me|them)\s+\+?(\d+)\s+(might|\[s\])/i);
+            if (mightMatch) {
+              const amount = parseInt(mightMatch[2], 10);
+              unit.tempMightBonus += amount;
+              d.log.unshift(`${trigger.sourceCardName}: ${unit.name} got +${amount} might this turn.`);
+            }
+          }
+          if (/ready\s+(it|me|them)/i.test(effectLower)) {
+            unit.isReady = true;
+            d.log.unshift(`${trigger.sourceCardName}: ${unit.name} was readied.`);
+          }
+        }
+        
+        // Remove one-time triggers
+        if (trigger.onlyOnce) {
+          d.delayedTriggers = d.delayedTriggers.filter(t => t.id !== trigger.id);
+        }
       }
     }
 
