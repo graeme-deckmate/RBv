@@ -129,6 +129,9 @@ interface CardInstance extends CardData {
   tempKeywords?: string[]; // cleared end of turn
   conditionalKeywords?: string[]; // computed from conditional text (buffed, mighty, etc.)
 
+  // Attached gear (for Weaponmaster and Equip)
+  attachedGear?: CardInstance[];
+
   // bookkeeping
   createdTurn: number;
   moveCountThisTurn: number;
@@ -221,6 +224,7 @@ interface PlayerState {
   discardedThisTurn: number;
   enemyUnitsDiedThisTurn: number;
   sealExhaustedThisTurn: boolean; // Prevents auto-payer from recycling runes when Seal was used
+  nextSpellDiscount: number; // Raging Firebrand: "Next spell costs [5] less"
 
   // Mulligan (setup)
   mulliganSelectedIds: string[];
@@ -1185,8 +1189,21 @@ const queueTriggersForEvent = (
   }
 };
 
-const extractDamageAmount = (effectTextRaw: string | undefined): number | null => {
+const extractDamageAmount = (effectTextRaw: string | undefined, sourceUnit?: CardInstance | null): number | null => {
   const text = (effectTextRaw || "").toLowerCase();
+  
+  // Handle "damage equal to my might" / "damage equal to its might"
+  if (/damage\s+equal\s+to\s+(my|its|their)\s+might/i.test(text) && sourceUnit) {
+    return sourceUnit.stats?.might || 0;
+  }
+  
+  // Handle "deal damage equal to my [assault]" (Lucian, Gunslinger)
+  if (/damage\s+equal\s+to\s+my\s+\[?assault\]?/i.test(text) && sourceUnit) {
+    // Assault gives +1 might while attacking
+    const hasAssault = hasKeyword(sourceUnit, "Assault");
+    return hasAssault ? 1 : 0;
+  }
+  
   // "Deal 2 ..." or "deal 3 ..."
   const m = text.match(/\bdeal\s+(\d+)\b/);
   if (!m) return null;
@@ -3698,7 +3715,7 @@ const resolveEffectText = (
   const damageFromDiscard =
       /\bdeal\s+its\s+energy\s+cost\s+as\s+damage\b/i.test(text) && discarded.length > 0 ? discarded[0].cost : null;
 
-  const dmg = damageFromDiscard != null ? damageFromDiscard : extractDamageAmount(text);
+  const dmg = damageFromDiscard != null ? damageFromDiscard : extractDamageAmount(text, sourceUnit);
 
   if (dmg != null && dmg > 0) {
     // --------------------- Damage ---------------------
@@ -3892,6 +3909,15 @@ const resolveEffectText = (
     // Surface unsupported effects to help implementation/debugging.
     const src = ctx?.sourceCardName ? ` from ${ctx.sourceCardName}` : "";
     game.log.unshift(`UNSUPPORTED effect${src}: ${text}`);
+  }
+
+  // Raging Firebrand: "the next spell you play this turn costs [5] less"
+  if (/next\s+spell.*costs?\s*\[(\d+)\]\s*less/i.test(lower)) {
+    const m = lower.match(/next\s+spell.*costs?\s*\[(\d+)\]\s*less/i);
+    const discount = m ? parseInt(m[1], 10) : 5;
+    p.nextSpellDiscount = discount;
+    game.log.unshift(`${controller}'s next spell costs ${discount} less.`);
+    did = true;
   }
 
   return did;
@@ -4566,6 +4592,7 @@ export default function RiftboundGame() {
   const [pendingTargets, setPendingTargets] = useState<Target[]>([{ kind: "NONE" }]);
   const [pendingChainChoice, setPendingChainChoice] = useState<null | { chainItemId: string; targets?: Target[] }>(null);
   const [hideChoice, setHideChoice] = useState<{ cardId: string | null; battlefieldIndex: number | null }>(() => ({ cardId: null, battlefieldIndex: null }));
+  const [showWeaponmasterChoice, setShowWeaponmasterChoice] = useState(false);
 
   const [moveSelection, setMoveSelection] = useState<{
     from: { kind: "BASE" } | { kind: "BF"; index: number } | null;
@@ -4651,6 +4678,7 @@ export default function RiftboundGame() {
         discardedThisTurn: 0,
         enemyUnitsDiedThisTurn: 0,
         sealExhaustedThisTurn: false,
+        nextSpellDiscount: 0,
         mulliganSelectedIds: [],
         mulliganDone: false,
       },
@@ -4674,6 +4702,7 @@ export default function RiftboundGame() {
         discardedThisTurn: 0,
         enemyUnitsDiedThisTurn: 0,
         sealExhaustedThisTurn: false,
+        nextSpellDiscount: 0,
         mulliganSelectedIds: [],
         mulliganDone: false,
       },
@@ -4870,6 +4899,7 @@ export default function RiftboundGame() {
           discardedThisTurn: 0,
           enemyUnitsDiedThisTurn: 0,
           sealExhaustedThisTurn: false,
+          nextSpellDiscount: 0,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -4893,6 +4923,7 @@ export default function RiftboundGame() {
           discardedThisTurn: 0,
           enemyUnitsDiedThisTurn: 0,
           sealExhaustedThisTurn: false,
+          nextSpellDiscount: 0,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -5068,6 +5099,7 @@ export default function RiftboundGame() {
           discardedThisTurn: 0,
           enemyUnitsDiedThisTurn: 0,
           sealExhaustedThisTurn: false,
+          nextSpellDiscount: 0,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -5091,6 +5123,7 @@ export default function RiftboundGame() {
           discardedThisTurn: 0,
           enemyUnitsDiedThisTurn: 0,
           sealExhaustedThisTurn: false,
+          nextSpellDiscount: 0,
           mulliganSelectedIds: [],
           mulliganDone: false,
         },
@@ -6726,6 +6759,91 @@ export default function RiftboundGame() {
       }
     }
 
+    // Battering Ram: "I cost [1] less for each card you've played this turn, to a minimum of [1]."
+    if (/cost.*less for each card.*played this turn/i.test(rawText)) {
+      const cardsPlayed = p.mainDeckCardsPlayedThisTurn;
+      if (cardsPlayed > 0) {
+        const base = overrideEnergyCost ?? card.cost ?? 0;
+        overrideEnergyCost = Math.max(1, base - cardsPlayed);
+        d.log.unshift(`${card.name} cost reduced by ${cardsPlayed} (cards played this turn).`);
+      }
+    }
+
+    // Void Drone / Drag Under: "I cost [2] less to play from anywhere other than your hand."
+    if (/cost.*less to play from anywhere other than.*hand/i.test(rawText) && params.source !== "HAND") {
+      const m = rawText.match(/cost\s*\[(\d+)\]\s*less/i);
+      const reduce = m ? parseInt(m[1], 10) : 2;
+      const base = overrideEnergyCost ?? card.cost ?? 0;
+      overrideEnergyCost = Math.max(0, base - reduce);
+      d.log.unshift(`${card.name} cost reduced by ${reduce} (played from ${params.source}).`);
+    }
+
+    // Jaull-Fish: "I cost [2] less if you've discarded this turn."
+    if (/cost.*less if you.*discarded/i.test(rawText) && p.discardedThisTurn > 0) {
+      const m = rawText.match(/cost\s*\[(\d+)\]\s*less/i);
+      const reduce = m ? parseInt(m[1], 10) : 2;
+      const base = overrideEnergyCost ?? card.cost ?? 0;
+      overrideEnergyCost = Math.max(0, base - reduce);
+      d.log.unshift(`${card.name} cost reduced by ${reduce} (discarded this turn).`);
+    }
+
+    // Production Surge: "This costs [2] less if you control a mech."
+    if (/costs?.*less if you control a mech/i.test(rawText)) {
+      const allUnits = [...p.base.units, ...d.battlefields.flatMap(bf => bf.units[pid])];
+      const hasMech = allUnits.some(u => u.tags?.some(t => t.toLowerCase() === "mech"));
+      if (hasMech) {
+        const m = rawText.match(/costs?\s*\[(\d+)\]\s*less/i);
+        const reduce = m ? parseInt(m[1], 10) : 2;
+        const base = overrideEnergyCost ?? card.cost ?? 0;
+        overrideEnergyCost = Math.max(0, base - reduce);
+        d.log.unshift(`${card.name} cost reduced by ${reduce} (control a Mech).`);
+      }
+    }
+
+    // Needlessly Large Yordle: "I cost [1] less for each gear attached to me." (when played, no gear yet)
+    // This would apply if gear was pre-attached somehow, but typically 0 at play time.
+
+    // Herald of Scales: "Your dragons' energy costs are reduced by [2], to a minimum of [1]."
+    // Check if player controls Herald of Scales and this card is a Dragon
+    const isDragon = card.tags?.some(t => t.toLowerCase() === "dragon");
+    if (isDragon) {
+      const allUnits = [...p.base.units, ...d.battlefields.flatMap(bf => bf.units[pid])];
+      const hasHeraldOfScales = allUnits.some(u => 
+        (u.ability?.raw_text || "").toLowerCase().includes("dragons' energy costs are reduced") ||
+        u.name === "Herald of Scales"
+      );
+      if (hasHeraldOfScales) {
+        const base = overrideEnergyCost ?? card.cost ?? 0;
+        overrideEnergyCost = Math.max(1, base - 2);
+        d.log.unshift(`${card.name} cost reduced by 2 (Herald of Scales).`);
+      }
+    }
+
+    // Eager Apprentice: "While I'm at a battlefield, the energy costs for spells you play is reduced by [1]."
+    // Already handled above via battlefieldSpellDiscount, but let's make it more robust
+    if (card.type === "Spell") {
+      const hasEagerApprentice = d.battlefields.some(bf =>
+        bf.units[pid].some(u => 
+          u.name === "Eager Apprentice" ||
+          (u.ability?.raw_text || "").toLowerCase().includes("energy costs for spells you play is reduced")
+        )
+      );
+      if (hasEagerApprentice && battlefieldSpellDiscount === 0) {
+        const base = overrideEnergyCost ?? card.cost ?? 0;
+        overrideEnergyCost = Math.max(1, base - 1);
+        d.log.unshift(`${card.name} cost reduced by 1 (Eager Apprentice).`);
+      }
+    }
+
+    // Raging Firebrand: Apply nextSpellDiscount if this is a spell
+    if (card.type === "Spell" && p.nextSpellDiscount > 0) {
+      const base = overrideEnergyCost ?? card.cost ?? 0;
+      const reduction = Math.min(p.nextSpellDiscount, base);
+      overrideEnergyCost = Math.max(0, base - reduction);
+      d.log.unshift(`${card.name} cost reduced by ${reduction} (next spell discount).`);
+      // Note: We'll clear nextSpellDiscount after the spell is played
+    }
+
     const baseEnergyCost = overrideEnergyCost ?? (card.cost ?? 0);
     const basePowerCost = overridePowerCost ?? (card.stats.power ?? 0);
     const additionalCost = resolveAdditionalCostsForPlay(d, pid, card, effectTextRaw, baseEnergyCost, basePowerCost);
@@ -6795,6 +6913,11 @@ export default function RiftboundGame() {
         if (bf.facedown && bf.facedown.owner === pid) bf.facedown = null;
       }
       p.mainDeckCardsPlayedThisTurn += 1;
+    }
+
+    // Clear nextSpellDiscount after spell is played (Raging Firebrand effect)
+    if (card.type === "Spell" && p.nextSpellDiscount > 0) {
+      p.nextSpellDiscount = 0;
     }
 
     // Put on chain
@@ -9650,6 +9773,54 @@ export default function RiftboundGame() {
                       Switch “playing as” to confirm the other player.
                     </div>
                   </>
+              ) : g.pendingWeaponmasterChoice && g.pendingWeaponmasterChoice.unitOwner === me ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div><b>Weaponmaster:</b> You may equip a gear to the unit that just entered play.</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {(() => {
+                        const choice = g.pendingWeaponmasterChoice!;
+                        const p = g.players[me];
+                        const availableGear = [...p.hand.filter(c => c.type === "Gear"), ...p.base.gear]
+                          .filter(gear => choice.availableGearIds.includes(gear.instanceId));
+                        return availableGear.map(gear => (
+                          <button
+                            key={gear.instanceId}
+                            className="rb-miniButton"
+                            onClick={() => {
+                              // Equip the gear to the unit
+                              const unit = locateUnit(g, choice.unitOwner, choice.unitInstanceId)?.unit;
+                              if (unit && gear) {
+                                // Remove gear from hand or base
+                                const handIdx = p.hand.findIndex(c => c.instanceId === gear.instanceId);
+                                if (handIdx >= 0) p.hand.splice(handIdx, 1);
+                                else {
+                                  const baseIdx = p.base.gear.findIndex(c => c.instanceId === gear.instanceId);
+                                  if (baseIdx >= 0) p.base.gear.splice(baseIdx, 1);
+                                }
+                                // Attach to unit
+                                if (!unit.attachedGear) unit.attachedGear = [];
+                                unit.attachedGear.push(gear);
+                                g.log.unshift(`${gear.name} equipped to ${unit.name} (Weaponmaster).`);
+                              }
+                              g.pendingWeaponmasterChoice = null;
+                              setGame({ ...g });
+                            }}
+                          >
+                            Equip {gear.name}
+                          </button>
+                        ));
+                      })()}
+                      <button
+                        className="rb-miniButton"
+                        onClick={() => {
+                          g.pendingWeaponmasterChoice = null;
+                          setGame({ ...g });
+                        }}
+                      >
+                        Skip (No Equip)
+                      </button>
+                    </div>
+                  </div>
               ) : selectedHandCard ? (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <span>
