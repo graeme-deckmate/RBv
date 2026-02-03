@@ -286,7 +286,8 @@ type EngineAction =
     | { type: "EQUIP_CANCEL"; player: PlayerId }
     | { type: "DAMAGE_ASSIGN"; player: PlayerId; assignment: Record<string, number> }
     | { type: "DAMAGE_CONFIRM"; player: PlayerId }
-    | { type: "DAMAGE_AUTO_ASSIGN"; player: PlayerId };
+    | { type: "DAMAGE_AUTO_ASSIGN"; player: PlayerId }
+    | { type: "KILL_GEAR_ACTIVATE"; player: PlayerId; gearInstanceId: string };
 
 interface ChainItem {
   id: string;
@@ -6833,6 +6834,60 @@ export default function RiftboundGame() {
     return true;
   };
 
+  // Helper to check if a gear has a "Kill this:" activated ability
+  const getKillThisAbility = (gear: CardInstance): string | null => {
+    const raw = gear.ability?.raw_text || gear.ability?.effect_text || "";
+    const match = raw.match(/Kill\s+this[:\s—-]+([^.]+\.?)/i);
+    return match ? match[1].trim() : null;
+  };
+
+  // Activate "Kill this:" ability on a gear
+  const engineKillGearActivate = (d: GameState, pid: PlayerId, gearInstanceId: string): boolean => {
+    const p = d.players[pid];
+    
+    // Find the gear in base
+    const gidx = p.base.gear.findIndex((x) => x.instanceId === gearInstanceId);
+    if (gidx < 0) {
+      d.log.unshift("Gear not found in base.");
+      return false;
+    }
+    const gear = p.base.gear[gidx];
+    
+    // Get the Kill this ability text
+    const killAbility = getKillThisAbility(gear);
+    if (!killAbility) {
+      d.log.unshift(`${gear.name} has no 'Kill this' ability.`);
+      return false;
+    }
+    
+    // Remove gear from base and put in trash (kill it)
+    p.base.gear.splice(gidx, 1);
+    p.trash.push(gear);
+    d.log.unshift(`${pid} sacrificed ${gear.name} to activate its ability.`);
+    
+    // Queue the ability as an activated ability on the chain
+    const req = inferTargetRequirement(killAbility, { here: false });
+    const chainItem: ChainItem = {
+      id: makeId("chain"),
+      controller: pid,
+      kind: "ACTIVATED_ABILITY",
+      label: `${gear.name} — Kill this`,
+      effectText: killAbility,
+      contextBattlefieldIndex: null,
+      needsTargets: req.kind !== "NONE",
+      targetRequirement: req,
+      targets: [{ kind: "NONE" }],
+      sourceInstanceId: gear.instanceId,
+    };
+    d.chain.push(chainItem);
+    d.state = "CLOSED";
+    d.passesInRow = 0;
+    d.priorityPlayer = pid;
+    d.log.unshift(`Activated ability queued: ${gear.name} (Kill this).`);
+    
+    return true;
+  };
+
   // ----------------------------- Combat Damage Assignment -----------------------------
   
   const engineDamageAssign = (d: GameState, pid: PlayerId, assignment: Record<string, number>): boolean => {
@@ -7504,6 +7559,9 @@ export default function RiftboundGame() {
       case "DAMAGE_AUTO_ASSIGN":
         engineDamageAutoAssign(d, action.player);
         return;
+      case "KILL_GEAR_ACTIVATE":
+        engineKillGearActivate(d, action.player, action.gearInstanceId);
+        return;
       default:
         return;
     }
@@ -7624,6 +7682,12 @@ export default function RiftboundGame() {
 
       case "DAMAGE_AUTO_ASSIGN": {
         return { type: "DAMAGE_AUTO_ASSIGN", player: p } as EngineAction;
+      }
+
+      case "KILL_GEAR_ACTIVATE": {
+        const gearInstanceId = typeof (actionAny as any).gearInstanceId === "string" ? (actionAny as any).gearInstanceId : "";
+        if (!gearInstanceId) return null;
+        return { type: "KILL_GEAR_ACTIVATE", player: p, gearInstanceId } as EngineAction;
       }
 
       default:
@@ -9101,6 +9165,18 @@ export default function RiftboundGame() {
     return t.replace(/^[—-]\s*/, "").trim();
   };
 
+  // Helper to extract only the play trigger portion of effect text, excluding activated abilities like "Kill this:"
+  const extractPlayTriggerEffect = (effectText: string): string => {
+    // Remove "Kill this:" activated ability clauses
+    // Pattern: "Kill this: <effect>" or "Kill this — <effect>"
+    let cleaned = effectText.replace(/\bKill\s+this[:\s—-]+[^.]*\.?/gi, "").trim();
+    // Also remove "Exhaust this:" activated abilities
+    cleaned = cleaned.replace(/\bExhaust\s+this[:\s—-]+[^.]*\.?/gi, "").trim();
+    // Remove any trailing/leading punctuation artifacts
+    cleaned = cleaned.replace(/^[.\s]+|[.\s]+$/g, "").trim();
+    return cleaned;
+  };
+
   const buildTriggeredAbilityItem = (
       d: GameState,
       controller: PlayerId,
@@ -9111,7 +9187,9 @@ export default function RiftboundGame() {
       sourceInstanceId?: string,
       legionActive: boolean = false
   ): ChainItem | null => {
-    const cleaned = normalizeTriggeredText(effectText);
+    // First extract only the play trigger portion, excluding activated abilities
+    const playTriggerOnly = extractPlayTriggerEffect(effectText);
+    const cleaned = normalizeTriggeredText(playTriggerOnly);
     if (!cleaned) return null;
     const req = inferTargetRequirement(cleaned, { here: restrictBf != null });
     return {
@@ -9608,6 +9686,11 @@ export default function RiftboundGame() {
                       {isEquipment(gear) && (
                         <button disabled={!canActAs(pid) || !gear.isReady} onClick={() => dispatchEngineAction({ type: "EQUIP_START", player: pid, gearInstanceId: gear.instanceId })}>
                           Equip to Unit
+                        </button>
+                      )}
+                      {getKillThisAbility(gear) && (
+                        <button disabled={!canActAs(pid)} onClick={() => dispatchEngineAction({ type: "KILL_GEAR_ACTIVATE", player: pid, gearInstanceId: gear.instanceId })}>
+                          Kill this: Activate
                         </button>
                       )}
                     </div>
@@ -12112,6 +12195,11 @@ export default function RiftboundGame() {
                       {isEquipment(gear) && (
                         <button className="rb-miniButton" disabled={!canActAs(me) || !gear.isReady} onClick={() => dispatchEngineAction({ type: "EQUIP_START", player: me, gearInstanceId: gear.instanceId })}>
                           Equip
+                        </button>
+                      )}
+                      {getKillThisAbility(gear) && (
+                        <button className="rb-miniButton" disabled={!canActAs(me)} onClick={() => dispatchEngineAction({ type: "KILL_GEAR_ACTIVATE", player: me, gearInstanceId: gear.instanceId })}>
+                          Kill this
                         </button>
                       )}
                     </div>
