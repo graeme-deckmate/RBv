@@ -6248,7 +6248,7 @@ export default function RiftboundGame() {
     // Only the controller of the chain item can set its targets.
     if (chainItem.controller !== viewerId) return;
 
-    dispatchEngineAction({ type: "SET_CHAIN_TARGETS", player: viewerId, chainItemId: pendingChainChoice.chainItemId, targets: pendingChainChoice.targets });
+    dispatchEngineAction({ type: "SET_CHAIN_TARGETS", player: viewerId, chainItemId: pendingChainChoice.chainItemId, targets: pendingTargets });
     setPendingChainChoice(null);
   };
 
