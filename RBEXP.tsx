@@ -8793,6 +8793,20 @@ export default function RiftboundGame() {
     gameRef.current = game;
   }, [game]);
 
+  // AI auto-choose starting player (moved from renderDiceRollModal to avoid hooks rule violation)
+  useEffect(() => {
+    if (!pendingStartingPlayerChoice) return;
+    const { chooser } = pendingStartingPlayerChoice;
+    const isAiChooser = aiByPlayer[chooser]?.enabled;
+    if (!isAiChooser) return;
+    
+    const timer = setTimeout(() => {
+      // AI always chooses to go first (simple heuristic)
+      confirmStartingPlayerChoice(chooser);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [pendingStartingPlayerChoice, aiByPlayer]);
+
   useEffect(() => {
     if (!game) return;
     if (aiPaused) return;
@@ -14013,19 +14027,8 @@ export default function RiftboundGame() {
     const p2Roll = showDiceRoll?.P2 ?? 0;
     const diceWinner = showDiceRoll?.winner ?? chooser;
     
-    // Check if AI should auto-choose
+    // Check if AI should auto-choose (effect is now at component level)
     const isAiChooser = aiByPlayer[chooser]?.enabled;
-    
-    // Auto-choose for AI after a delay
-    React.useEffect(() => {
-      if (isAiChooser && pendingStartingPlayerChoice) {
-        const timer = setTimeout(() => {
-          // AI always chooses to go first (simple heuristic)
-          confirmStartingPlayerChoice(chooser);
-        }, 1500);
-        return () => clearTimeout(timer);
-      }
-    }, [isAiChooser, pendingStartingPlayerChoice]);
     
     return (
       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 100 }}>
