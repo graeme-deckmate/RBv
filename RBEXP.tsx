@@ -1707,6 +1707,14 @@ const killUnit = (game: GameState, owner: PlayerId, unit: CardInstance, reason =
   game.players[opp].enemyUnitsDiedThisTurn += 1;
   checkGlobalTriggers(game, "KILL_UNIT", { player: owner, card: unit });
 
+  // Check for "When one or more enemy units die, ready me" legend trigger (e.g., Sivir)
+  const oppLegend = game.players[opp].legend;
+  const oppLegendRaw = oppLegend?.ability?.raw_text || oppLegend?.rules_text?.raw || "";
+  if (/when one or more enemy units die,?\s*ready me/i.test(oppLegendRaw)) {
+    game.players[opp].legendReady = true;
+    game.log.unshift(`${oppLegend?.name} readied (enemy unit died).`);
+  }
+
   if (wasBuffed) {
     queueTriggersForEvent(
         game,
@@ -2129,27 +2137,33 @@ const attemptScore = (game: GameState, scorer: PlayerId, battlefieldIndex: numbe
               ? trig.includes("when i conquer") || trig.includes("when i'm played and when i conquer")
               : trig.includes("when i hold");
       if (matches && u.ability?.effect_text) {
-        const req = inferTargetRequirement(u.ability.effect_text);
-        game.chain.push({
-          id: makeId("chain"),
-          controller: scorer,
-          kind: "TRIGGERED_ABILITY",
-          label: `Trigger: ${u.name} (${method})`,
-          effectText: u.ability.effect_text,
-          targets: [{ kind: "NONE" }],
-          needsTargets: req.kind !== "NONE",
-          targetRequirement: req,
-        });
-        game.state = "CLOSED";
-        game.priorityPlayer = scorer;
-        game.passesInRow = 0;
-        game.log.unshift(`${u.name} triggered (${method}).`);
+        // Use extractPlayTriggerEffect to get only the triggered portion, not activated abilities
+        const effectText = extractPlayTriggerEffect(u.ability.effect_text);
+        if (effectText) {
+          const req = inferTargetRequirement(effectText);
+          game.chain.push({
+            id: makeId("chain"),
+            controller: scorer,
+            kind: "TRIGGERED_ABILITY",
+            label: `Trigger: ${u.name} (${method})`,
+            effectText: effectText,
+            targets: [{ kind: "NONE" }],
+            needsTargets: req.kind !== "NONE",
+            targetRequirement: req,
+          });
+          game.state = "CLOSED";
+          game.priorityPlayer = scorer;
+          game.passesInRow = 0;
+          game.log.unshift(`${u.name} triggered (${method}).`);
+        }
       }
     }
   }
 
   if (method === "Conquer") {
     const legend = game.players[scorer].legend;
+    const legendReady = game.players[scorer].legendReady;
+    // Check for "When you conquer" trigger in legend ability
     if (legend?.ability?.trigger && legend.ability.trigger.toLowerCase().includes("when you conquer") && legend.ability.effect_text) {
       const req = inferTargetRequirement(legend.ability.effect_text);
       game.chain.push({
@@ -2166,6 +2180,35 @@ const attemptScore = (game: GameState, scorer: PlayerId, battlefieldIndex: numbe
       game.priorityPlayer = scorer;
       game.passesInRow = 0;
       game.log.unshift(`${legend.name} triggered (Conquer).`);
+    }
+    // Also check for "When you conquer, ready me" in raw text (e.g., Sett, The Boss; Irelia)
+    const rawText = legend?.ability?.raw_text || legend?.rules_text?.raw || "";
+    const readyMeOnConquer = /when you conquer,?\s*(you may pay \[?\d\]? to )?ready me/i.test(rawText);
+    if (readyMeOnConquer && legend) {
+      // Check if there's a cost ("you may pay [1] to ready me")
+      const costMatch = rawText.match(/when you conquer,?\s*you may pay \[?(\d)\]? to ready me/i);
+      if (costMatch) {
+        // Has a cost - queue as triggered ability
+        const cost = parseInt(costMatch[1], 10);
+        game.chain.push({
+          id: makeId("chain"),
+          controller: scorer,
+          kind: "TRIGGERED_ABILITY",
+          label: `Trigger: ${legend.name} (Conquer - Ready)`,
+          effectText: `You may pay [${cost}] to ready your legend.`,
+          targets: [{ kind: "NONE" }],
+          needsTargets: false,
+          targetRequirement: { kind: "NONE" },
+        });
+        game.state = "CLOSED";
+        game.priorityPlayer = scorer;
+        game.passesInRow = 0;
+        game.log.unshift(`${legend.name} triggered (Conquer - Ready option).`);
+      } else {
+        // No cost - just ready the legend
+        game.players[scorer].legendReady = true;
+        game.log.unshift(`${legend.name} readied (Conquer).`);
+      }
     }
   }
 
@@ -6610,6 +6653,33 @@ export default function RiftboundGame() {
     p.runePool.power[r.domain] += 1;
     p.runeDeck.push({ ...r, isReady: true }); // bottom of rune deck
     d.log.unshift(`${pid} recycled a ${r.domain} rune to add 1 ${r.domain} power.`);
+    
+    // Check for "When you recycle a rune" legend trigger (e.g., Sivir)
+    const legend = p.legend;
+    const legendReady = p.legendReady;
+    const legendRaw = legend?.ability?.raw_text || legend?.rules_text?.raw || "";
+    if (legendReady && /when you recycle a rune,?\s*you may exhaust me to/i.test(legendRaw)) {
+      // Queue the triggered ability
+      const effectMatch = legendRaw.match(/when you recycle a rune,?\s*you may exhaust me to\s+([^.]+)/i);
+      if (effectMatch) {
+        const effect = effectMatch[1].trim();
+        d.chain.push({
+          id: makeId("chain"),
+          controller: pid,
+          kind: "TRIGGERED_ABILITY",
+          label: `Trigger: ${legend?.name} (Recycle Rune)`,
+          effectText: `You may exhaust your legend to ${effect}.`,
+          targets: [{ kind: "NONE" }],
+          needsTargets: false,
+          targetRequirement: { kind: "NONE" },
+        });
+        d.state = "CLOSED";
+        d.priorityPlayer = pid;
+        d.passesInRow = 0;
+        d.log.unshift(`${legend?.name} triggered (Recycle Rune).`);
+      }
+    }
+    
     return true;
   };
 
@@ -6846,6 +6916,13 @@ export default function RiftboundGame() {
   // Helper to check if a unit has a "Spend my buff:" activated ability
   const getSpendMyBuffAbility = (unit: CardInstance): string | null => {
     const raw = unit.ability?.raw_text || unit.ability?.effect_text || "";
+    // Check for multi-line modal ability (Udyr style: "Spend my buff: Choose one...")
+    const modalMatch = raw.match(/Spend\s+my\s+buff[:\s—-]+Choose\s+one[^\n]*([\s\S]*?)(?=\n\n|$)/i);
+    if (modalMatch) {
+      // Return the full modal text including options
+      return "Choose one" + modalMatch[1].trim();
+    }
+    // Standard single-effect ability
     const match = raw.match(/Spend\s+my\s+buff[:\s—-]+([^.]+\.?)/i);
     return match ? match[1].trim() : null;
   };
@@ -7810,7 +7887,8 @@ export default function RiftboundGame() {
     to: { kind: "BASE" } | { kind: "BF"; index: number };
     unitIds: string[];
   }
-      | { type: "SET_CHAIN_TARGETS"; chainItemId: string; targets: Target[] };
+      | { type: "SET_CHAIN_TARGETS"; chainItemId: string; targets: Target[] }
+      | { type: "DAMAGE_AUTO_ASSIGN" };
 
   const canSpellTimingNow = (
       d: GameState,
@@ -8507,6 +8585,9 @@ export default function RiftboundGame() {
           autoPay: true,
         });
         return;
+      case "DAMAGE_AUTO_ASSIGN":
+        dispatchEngineAction({ type: "DAMAGE_AUTO_ASSIGN", player: pid });
+        return;
       default:
         return;
     }
@@ -8609,6 +8690,16 @@ export default function RiftboundGame() {
 
   const aiEnumerateIntents = (d: GameState, pid: PlayerId, difficulty: AiDifficulty): AiIntent[] => {
     const intents: AiIntent[] = [];
+
+    // 0) Damage assignment - AI should auto-assign if pending
+    if (d.pendingDamageAssignment) {
+      const pda = d.pendingDamageAssignment;
+      const needsToAssign = (pid === pda.attacker && !pda.attackerConfirmed) || (pid === pda.defender && !pda.defenderConfirmed);
+      if (needsToAssign) {
+        intents.push({ type: "DAMAGE_AUTO_ASSIGN" });
+        return intents;
+      }
+    }
 
     // 1) Mulligan
     if (d.step === "MULLIGAN") {
