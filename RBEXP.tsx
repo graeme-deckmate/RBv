@@ -1197,6 +1197,9 @@ const choosePowerPaymentDomains = (pool: RunePool, need: number, allowed: Domain
 type TargetRequirement =
     | { kind: "NONE"; optional?: boolean }
     | { kind: "UNIT_ANYWHERE"; count: number; excludeSelf?: boolean; optional?: boolean }
+    | { kind: "UNIT_AT_BATTLEFIELD"; count: number; excludeSelf?: boolean; optional?: boolean }  // Any unit at a battlefield (not base)
+    | { kind: "UNIT_ENEMY_AT_BATTLEFIELD"; count: number; excludeSelf?: boolean; optional?: boolean }  // Enemy unit at a battlefield
+    | { kind: "UNIT_FRIENDLY_AT_BATTLEFIELD"; count: number; excludeSelf?: boolean; optional?: boolean }  // Friendly unit at a battlefield
     | { kind: "UNIT_HERE_ENEMY"; count: number; excludeSelf?: boolean; optional?: boolean }
     | { kind: "UNIT_HERE_FRIENDLY"; count: number; excludeSelf?: boolean; optional?: boolean }
     | { kind: "UNIT_FRIENDLY"; count: number; excludeSelf?: boolean; optional?: boolean }  // Friendly unit anywhere (e.g., "a friendly unit")
@@ -1228,7 +1231,29 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
 
   if (!needsUnit) return { kind: "NONE" };
 
-  // Check for "here" targeting first
+  // Detect "another" or "other" to exclude source unit from valid targets
+  const excludeSelf = /\b(another|other)\s+(friendly|enemy)?\s*(unit|units)\b/.test(text);
+
+  // Check for "at a battlefield" zone restriction FIRST - this is critical for cards like Wages of Pain
+  // Patterns: "unit at a battlefield", "enemy unit at a battlefield", "friendly unit at a battlefield"
+  const atBattlefield = /\bat\s+(?:a\s+)?battlefields?\b/.test(text) || /\bat\s+that\s+battlefield\b/.test(text);
+  
+  if (atBattlefield) {
+    // Check if it's specifically enemy or friendly at battlefield
+    const wantsEnemyAtBF = /\benemy\s+units?\s+at\s+(?:a\s+)?battlefields?\b/.test(text) ||
+        /\bto\s+an?\s+enemy\s+unit\s+at\s+(?:a\s+)?battlefield\b/.test(text) ||
+        (/\bat\s+(?:a\s+)?battlefields?\b/.test(text) && /\benemy\s+unit\b/.test(text));
+    const wantsFriendlyAtBF = /\bfriendly\s+units?\s+at\s+(?:a\s+)?battlefields?\b/.test(text) ||
+        /\bto\s+a\s+friendly\s+unit\s+at\s+(?:a\s+)?battlefield\b/.test(text) ||
+        (/\bat\s+(?:a\s+)?battlefields?\b/.test(text) && /\bfriendly\s+unit\b/.test(text));
+    
+    if (wantsEnemyAtBF && !wantsFriendlyAtBF) return { kind: "UNIT_ENEMY_AT_BATTLEFIELD", count: 1, excludeSelf, optional: isOptional };
+    if (wantsFriendlyAtBF && !wantsEnemyAtBF) return { kind: "UNIT_FRIENDLY_AT_BATTLEFIELD", count: 1, excludeSelf, optional: isOptional };
+    // Generic "a unit at a battlefield" - any unit at any battlefield
+    return { kind: "UNIT_AT_BATTLEFIELD", count: 1, excludeSelf, optional: isOptional };
+  }
+
+  // Check for "here" targeting (same battlefield as source)
   const wantsEnemyHere = /\benemy unit here\b/.test(text) || (/\bunit here\b/.test(text) && /\benemy\b/.test(text));
   const wantsFriendlyHere = /\byour unit here\b/.test(text) || (/\bunit here\b/.test(text) && /\byour\b/.test(text)) ||
       /\bfriendly unit here\b/.test(text);
@@ -1236,7 +1261,7 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
   if (wantsEnemyHere) return { kind: "UNIT_HERE_ENEMY", count: 1, optional: isOptional };
   if (wantsFriendlyHere) return { kind: "UNIT_HERE_FRIENDLY", count: 1, optional: isOptional };
 
-  // Check for friendly/enemy unit targeting (anywhere)
+  // Check for friendly/enemy unit targeting (anywhere - including base)
   // Patterns: "a friendly unit", "another friendly unit", "friendly unit's", "your unit"
   const wantsFriendly = /\b(a|another)\s+friendly\s+unit\b/.test(text) || /\bfriendly\s+unit's\b/.test(text) ||
       /\byour\s+unit\b/.test(text) || /\bone\s+of\s+your\s+units\b/.test(text) ||
@@ -1244,8 +1269,6 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
   // Patterns: "an enemy unit", "another enemy unit", "enemy unit's"
   const wantsEnemy = /\ban?(other)?\s+enemy\s+unit\b/.test(text) || /\benemy\s+unit's\b/.test(text) ||
       /\bother\s+enemy\s+units?\b/.test(text);
-  // Detect "another" or "other" to exclude source unit from valid targets
-  const excludeSelf = /\b(another|other)\s+(friendly|enemy)?\s*(unit|units)\b/.test(text);
 
   if (wantsFriendly && !wantsEnemy) return { kind: "UNIT_FRIENDLY", count: 1, excludeSelf, optional: isOptional };
   if (wantsEnemy && !wantsFriendly) return { kind: "UNIT_ENEMY", count: 1, excludeSelf, optional: isOptional };
@@ -6036,11 +6059,23 @@ export default function RiftboundGame() {
       const hereBf = ctxBf != null ? ctxBf : restrictBf;
       const hereMatches = hereBf != null && loc.zone === "BF" && loc.battlefieldIndex === hereBf;
 
+      // Check if unit is at a battlefield (not in base)
+      const isAtBattlefield = loc.zone === "BF";
+
       switch (req.kind) {
         case "UNIT_HERE_FRIENDLY":
           return hereMatches && isFriendly;
         case "UNIT_HERE_ENEMY":
           return hereMatches && isEnemy;
+        case "UNIT_AT_BATTLEFIELD":
+          // Any unit at any battlefield (not base)
+          return isAtBattlefield;
+        case "UNIT_ENEMY_AT_BATTLEFIELD":
+          // Enemy unit at any battlefield (not base)
+          return isAtBattlefield && isEnemy;
+        case "UNIT_FRIENDLY_AT_BATTLEFIELD":
+          // Friendly unit at any battlefield (not base)
+          return isAtBattlefield && isFriendly;
         case "UNIT_FRIENDLY":
           return isFriendly;
         case "UNIT_ENEMY":
@@ -9954,7 +9989,17 @@ export default function RiftboundGame() {
                   </div>
                 ) : (
                   <div style={{ marginTop: 12 }}>
-                    <div style={{ fontSize: 12, opacity: 0.8 }}>Targets</div>
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>
+                      {req.kind === "UNIT_AT_BATTLEFIELD" ? "Target: Unit at a Battlefield" :
+                       req.kind === "UNIT_ENEMY_AT_BATTLEFIELD" ? "Target: Enemy Unit at a Battlefield" :
+                       req.kind === "UNIT_FRIENDLY_AT_BATTLEFIELD" ? "Target: Friendly Unit at a Battlefield" :
+                       req.kind === "UNIT_HERE_ENEMY" ? "Target: Enemy Unit Here" :
+                       req.kind === "UNIT_HERE_FRIENDLY" ? "Target: Friendly Unit Here" :
+                       req.kind === "UNIT_FRIENDLY" ? "Target: Friendly Unit" :
+                       req.kind === "UNIT_ENEMY" ? "Target: Enemy Unit" :
+                       req.kind === "BATTLEFIELD" ? "Target: Battlefield" :
+                       "Targets"}
+                    </div>
                     <select
                         disabled={pickerDisabled}
                         style={{ width: "100%", padding: 6, marginTop: 6 }}

@@ -1,0 +1,1076 @@
+[
+  {
+    "name": "Angle Shot",
+    "type": "spell",
+    "effect": "[Reaction]  (Play any time, even before spells and abilities resolve.) \nChoose a unit and an Equipment with the same controller. Attach that Equipment to that unit or detach that Equipment from that unit. Draw 1.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Aphelios, Exalted",
+    "type": "unit - aphelios, mounttargon",
+    "effect": "When you attach an Equipment to me, choose one that hasn't been chosen this turn \u2014\n- Ready 2 runes.\n- Channel 1 rune exhausted.\n- Buff a friendly unit.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Arena Bar",
+    "type": "gear",
+    "effect": "[T]: Buff an exhausted friendly unit. (If it doesn't have a buff, it gets a +1 [S] buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Arise!",
+    "type": "spell - azir",
+    "effect": "Play a 2 [S] Sand Soldier unit token for each Equipment you control. Then ready two of them.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Azir, Ascendant",
+    "type": "unit - bird, azir, shurima",
+    "effect": "[C]: [Action] \u2014 Choose a unit you control. Move me to its location and it to my original location. If it's equipped, you may attach one of its Equipment to me. Use only once per turn.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Azir, Sovereign",
+    "type": "unit - bird, azir, shurima",
+    "effect": "[Accelerate]  (You may pay \\[1]\\[C] as an additional cost to have me enter ready.) \nWhen I attack, you may move any number of your token units to this battlefield.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Baited Hook",
+    "type": "gear",
+    "effect": "\\[1]\\[C], [T]: Kill a friendly unit. Look at the top 5 cards of your Main Deck. You may play a unit from among them that has Might up to 1 more than the killed unit, ignoring its cost. Then recycle the rest.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Bellows Breath",
+    "type": "spell",
+    "effect": "[Action]  (Play on your turn or in showdowns.) \n[Repeat] \\[1]\\[C]  (You may pay the additional cost to repeat this spell's effect.) \nDeal 1 to up to three units at the same location.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Blade of the Ruined King",
+    "type": "gear - equipment",
+    "effect": "[Equip] \u2014 [C], Kill a friendly unit  (Pay the cost: Attach this to a unit you control.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Blind Monk",
+    "type": "legend - lee sin",
+    "effect": "1 energy, exhaust: Buff a friendly unit. (If it doesn't have a buff, it gets a +1 might buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Blitzcrank, Impassive",
+    "type": "unit - mech, blitzcrank, zaun",
+    "effect": "[Tank] (I must be assigned combat damage first.)\nWhen you play me to a battlefield, you may move an enemy unit to here.\nWhen I hold, return me to my owner's hand.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Buhru Captain",
+    "type": "unit - bilgewater",
+    "effect": "When you play me, you may draw 1 or buff me.  (To buff a unit, give it a +1 [S] buff if it doesn't already have one.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Bushwhack",
+    "type": "spell",
+    "effect": "[Hidden]  (Hide now for [A] to react with later for [0].) \nFriendly units enter ready this turn. Play a Gold gear token exhausted.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Call to Glory",
+    "type": "spell",
+    "effect": "[Reaction] (Play any time, even before spells and abilities resolve.)\nAs you play this, you may spend a buff as an additional cost.\nGive a unit +3 [S] this turn.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Cannon Barrage",
+    "type": "spell",
+    "effect": "[Reaction] (Play any time, even before spells and abilities resolve.)\nDeal 2 to all enemy units in combat.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Cemetery Attendant",
+    "type": "unit - dog, shadowisles",
+    "effect": "When you play me, return a unit from your trash to your hand.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Challenge",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nChoose a friendly unit and an enemy unit. They deal damage equal to their Mights to each other.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Charm",
+    "type": "spell",
+    "effect": "Move an enemy unit.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Cithria of Cloudfield",
+    "type": "unit - elite, demacia",
+    "effect": "When you play another unit, buff me. (If I don't have a buff, I get a +1 [S] buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Commander Ledros",
+    "type": "unit - spirit, shadowisles",
+    "effect": "As you play me, you may kill any number of friendly units as an additional cost by [C] for each killed this way.\n[Deflect] (Opponents must pay [A] to choose me with a spell or ability.)\n[Ganking] (I can move from battlefield to battlefield.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Confront",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nUnits you play this turn enter ready. Draw 1.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Convergent Mutation",
+    "type": "spell",
+    "effect": "[Reaction] (Play any time, even before spells and abilities resolve.)\nChoose a friendly unit. If its Might is less than another friendly unit's, its Might becomes the Might of that friendly unit this turn.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Corina Veraza",
+    "type": "unit - zaun",
+    "effect": "[Accelerate]  (You may pay \\[1]\\[C] as an additional cost to have me enter ready.) \nWhen I move to a battlefield, play three 1 [S] Recruit unit tokens here.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Counter Strike",
+    "type": "spell - jax",
+    "effect": "[Reaction]  (Play any time, even before spells and abilities resolve.) \nChoose a unit. The next time that unit would be dealt damage this turn, prevent it. Draw 1.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Cruel Patron",
+    "type": "unit - noxus",
+    "effect": "As an additional cost to play me, kill a friendly unit.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Cull the Weak",
+    "type": "spell",
+    "effect": "Each player kills one of their units.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Darius, Executioner",
+    "type": "unit - trifarian, darius, noxus",
+    "effect": "[Legion] \u2014 When you play me, ready me. (Get the effect if you've played another card this turn) Other friendly units have +1 might here.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Deathgrip",
+    "type": "spell",
+    "effect": "[Reaction]  (Play any time, even before spells and abilities resolve.) \nKill a friendly unit to give +[S] equal to its Might to another friendly unit this turn. Draw 1.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Divine Judgment",
+    "type": "spell",
+    "effect": "Each player chooses 2 units, 2 gear, 2 runes, and 2 cards in their hands. Recycle the rest.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Dragon's Rage",
+    "type": "spell - leesin",
+    "effect": "Move an enemy unit. Then choose another enemy unit at its destination. They deal damage equal to their Mights to each other.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Eclipse Herald",
+    "type": "unit - bird, mounttargon",
+    "effect": "When you stun an enemy unit, ready me and give me +1 [S] this turn.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Emperor's Dais",
+    "type": "battlefield",
+    "effect": "When you conquer here, you may pay [1] and return a unit you control here to its owner's hand. If you do, play a 2 [S] Sand Soldier unit token here.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Facebreaker",
+    "type": "spell",
+    "effect": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Action] (Play on your turn or in showdowns.)\nStun a friendly unit and an enemy unit at the same battlefield. (They don't deal combat damage this turn.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Fae Dragon",
+    "type": "unit - fae, dragon, bandlecity",
+    "effect": "When you play me, buff up to four friendly units.  (Give each a +1 [S] buff if it doesn't have one.) \nWhen you spend a buff, play a Gold gear token exhausted.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Fae Porter",
+    "type": "unit - fae, ionia",
+    "effect": "When I move to a battlefield, you may pay [C] to move a unit you control to the same battlefield.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Falling Star",
+    "type": "spell",
+    "effect": "Do this twice:\nDeal 3 to a unit. (You can choose different units.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Fight or Flight",
+    "type": "spell",
+    "effect": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Action] (Play on your turn or in showdowns.)\nMove a unit from a battlefield to its base.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Final Spark",
+    "type": "spell - lux",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nDeal 8 to a unit.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Fiora, Worthy",
+    "type": "unit - fiora, demacia",
+    "effect": "When a unit you control becomes [Mighty], you may pay [C] to ready it.  (A unit is Mighty while it has 5+ [S].)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "First Mate",
+    "type": "unit - pirate, bilgewater",
+    "effect": "When you play me, ready another unit.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Fortified Position",
+    "type": "battlefield",
+    "effect": "When you defend here, choose a unit. It gains [Shield 2] this combat. (+2 [S] while it's a defender.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Gentlemen's Duel",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nGive a friendly unit +3 [S] this turn. Then choose an enemy unit. They deal damage equal to their Mights to each other.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Guardian of the Passage",
+    "type": "unit - spirit, shadowisles",
+    "effect": "When I hold, you may return a unit or gear from your trash to your hand.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Guards!",
+    "type": "spell",
+    "effect": "[Hidden]  (Hide now for [A] to react with later for [0].) \nPlay a 2 [S] Sand Soldier unit token. You may pay [C] to ready it.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Harnessed Dragon",
+    "type": "unit - dragon, demacia",
+    "effect": "When you play me, kill an enemy unit.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Highlander",
+    "type": "spell - masteryi",
+    "effect": "[Reaction] (Play any time, even before spells and abilities resolve.)\nChoose a friendly unit. The next time it dies this turn, recall it exhausted instead. (Send it to base. This isn't a move.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Icathian Rain",
+    "type": "spell - kaisa",
+    "effect": "Do this 6 times:\nDeal 2 to a unit. (You can choose different units.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Immortal Phoenix",
+    "type": "unit - spirit",
+    "effect": "[Assault 2] (+2 [S] while I'm an attacker.)\nWhen you kill a unit with a spell, you may pay \\[1]\\[C] to play me from your trash.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Imperial Decree",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nWhen any unit takes damage this turn, kill it.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Irelia, Blade Dancer",
+    "type": "legend - irelia",
+    "effect": "When you choose a friendly unit, you may exhaust me and pay [A] to ready it.\nWhen you conquer, you may pay [1] to ready me.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Jaull-Fish",
+    "type": "unit - bilgewater",
+    "effect": "[Accelerate]**   ** (You may pay \\[1]\\[C] as an additional cost to have me enter ready.) \nI cost [2] less for each of your [Mighty] units.  (A unit is Mighty while it has 5+ [S].)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Jax, Unmatched",
+    "type": "unit - jax, icathia",
+    "effect": "[Deflect]  (Opponents must pay [A] to choose me with a spell or ability.) \nEach Equipment in your hand has [Quick-Draw].  (It gains [Reaction]. When you play it, attach it to a unit you control.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Karma, Channeler",
+    "type": "unit - vi, ionia",
+    "effect": "[Vision] (When you play me, look at the top card of your Main Deck. You may recycle it.)\nWhen you recycle one or more cards, buff a friendly unit. (If it doesn't have a buff, it gets a +1 might buff. Runes aren't cards.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Kato the Arm",
+    "type": "unit - noxus",
+    "effect": "[Deflect]  (Opponents must pay [A] to choose me with a spell or ability.) \nWhen I move to a battlefield, give a friendly unit my keywords and +[S] equal to my Might this turn.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "King's Edict",
+    "type": "spell",
+    "effect": "Starting with the next player, each other player chooses a unit you don't control that hasn't been chosen for this spell. Kill those units.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Kinkou Monk",
+    "type": "unit - ionia",
+    "effect": "When you play me, buff two other friendly units. (Each one that doesn't have a buff gets a +1 [S] buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Kog'Maw, Caustic",
+    "type": "unit - kogmaw, thevoid",
+    "effect": "[Deathknell] \u2014 Deal 4 to all units at my battlefield. (When I die, get the effect.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Last Stand",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nDouble a friendly unit's Might this turn. Give it [Temporary]. (Kill it at the start of its controller's Beginning Phase, before scoring.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Lee Sin, Blind Monk",
+    "type": "legend - leesin",
+    "effect": "[1], [T]: Buff a friendly unit. (If it doesn't have a buff, it gets a +1 [S] buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Lee Sin, Centered",
+    "type": "unit - leesin, ionia",
+    "effect": "[Accelerate] (You may pay \\[1]\\[C] as an additional cost to have me enter ready.)\nOther buffed friendly units at my battlefield have +2 [S].",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Leona, Radiant Dawn",
+    "type": "legend - leona",
+    "effect": "When you stun one or more enemy units, buff a friendly unit. (If it doesn't have a buff, it gets a +1 [S] buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Maddened Marauder",
+    "type": "unit - pirate, bilgewater",
+    "effect": "[Tank] (I must be assigned combat damage first.)\nWhen you play me, move a unit from a battlefield to its base.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Mageseeker Warden",
+    "type": "unit - demacia",
+    "effect": "While I'm at a battlefield, opponents can only play units to their base.\nWhile I'm at a battlefield, spells and abilities can't ready enemy units and gear.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Magma Wurm",
+    "type": "unit - freljord",
+    "effect": "Other friendly units enter ready.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Malzahar, Fanatic",
+    "type": "unit - malzahar, thevoid",
+    "effect": "Kill a friendly unit or gear, [T]: [Action] \u2014 [Add] \\[A]\\[A]. (Use on your turn or in showdowns. Abilities that add resources can't be reacted to.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Mistfall",
+    "type": "gear",
+    "effect": "When you buff a friendly unit, you may pay [C] and exhaust this to ready it.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Morbid Return",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nReturn a unit from your trash to your hand.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Not So Fast",
+    "type": "spell",
+    "effect": "[Reaction]  (Play any time, even before spells and abilities resolve.) \nCounter an enemy spell or ability that chooses a friendly unit or gear.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Noxian Guillotine",
+    "type": "spell - darius",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nChoose a unit. Kill it the next time it takes damage this turn.\n[Legion] \u2014 Kill it now instead. (Get the effect if you've played another card this turn.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "On the Hunt",
+    "type": "spell - sivir",
+    "effect": "Ready your units.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Overt Operation",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nFor each friendly unit, you may spend its buff to ready it. Then buff all friendly units. (Each one that doesn't have a buff gets a +1 [S] buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Overzealous Fan",
+    "type": "unit - noxus",
+    "effect": "When I defend, you may kill me to move an attacking unit to its base.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Petricite Monument",
+    "type": "gear",
+    "effect": "[Temporary]  (Kill this at the start of its controller's Beginning Phase, before scoring.) \nFriendly units have [Deflect].  (Opponents must pay [A] to choose them with a spell or ability.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Pirate's Haven",
+    "type": "gear",
+    "effect": "When you ready a friendly unit, give it +1 [S] this turn.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Pit Rookie",
+    "type": "unit - bilgewater",
+    "effect": "When you play me, buff another friendly unit. (If it doesn't have a buff, it gets a +1 [S] buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Radiant Dawn",
+    "type": "legend - leona",
+    "effect": "When you stun one or more enemy units, buff a friendly unit. (If it doesn't have a buff, it gets a +1 might buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Rally the Troops",
+    "type": "spell",
+    "effect": "[Action]  (Play on your turn or in showdowns.) \nWhen a friendly unit is played this turn, buff it.  (If it doesn't have a buff, it gets a +1 [S] buff.) \nDraw 1.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Relentless Pursuit",
+    "type": "spell - lucian",
+    "effect": "[Action]  (Play on your turn or in showdowns.) \nMove a friendly unit. You may attach an Equipment with the same controller to it. This turn, that unit has \"When I conquer, you may move me to my base.\"",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Retreat",
+    "type": "spell",
+    "effect": "[Reaction] (Play any time, even before spells and abilities resolve.)\nReturn a friendly unit to its owner's hand. Its owner channels 1 rune exhausted.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Ride the Wind",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nMove a friendly unit and ready it.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Riposte",
+    "type": "spell - fiora",
+    "effect": "[Reaction]  (Play any time, even before spells and abilities resolve.) \nChoose a friendly unit and a spell. Counter that spell and give that unit +[S] equal to that spell's Energy cost this turn.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Rocket Barrage",
+    "type": "spell",
+    "effect": "[Repeat] \\[4]\\[C]  (You may pay the additional cost to repeat this spell's effect, and may make different choices.) \nChoose one \u2014\n- Deal 4 to a unit in a base.\n- Kill a gear.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Rune Prison",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nStun a unit. (It doesn't deal combat damage this turn.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Sabotage",
+    "type": "spell",
+    "effect": "Choose an opponent. They reveal their hand. Choose a non-unit card from it, and recycle that card.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Sandshifter",
+    "type": "unit - shurima",
+    "effect": "When you play me, kill an enemy unit with 3 [S] or less.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Sett, Kingpin",
+    "type": "unit - sett, ionia",
+    "effect": "[Tank] (I must be assigned combat damage first.)\nI get +1 [S] for each buffed friendly unit at my battlefield.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Sett, The Boss",
+    "type": "legend - sett",
+    "effect": "When a buffed unit you control would die, you may pay [C] and exhaust me to spend its buff and recall it exhausted instead. (Send it to base. This isn't a move.)\nWhen you conquer, ready me.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Shakedown",
+    "type": "spell",
+    "effect": "[Reaction] (Play any time, even before spells and abilities resolve.)\nChoose an enemy unit. Deal 6 to it unless its controller has you draw 2.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Shurelya's Requiem",
+    "type": "gear - ornn, equipment",
+    "effect": "[Unique]** ** (Your deck can have only 1 card with this name.)  [Equip] [C]  ([C]: Attach this to a unit you control.)  When you play this, ready your units.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Singularity",
+    "type": "spell",
+    "effect": "Deal 6 to each of up to two units.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Sivir, Ambitious",
+    "type": "unit - sivir, shurima",
+    "effect": "[Deflect 2]  (Opponents must pay \\[A]\\[A] to choose me with a spell or Ability.) \nWhen I conquer after an attack, if you assigned 5 or more excess damage to enemy units, you may deal that much to an enemy unit.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Sivir, Battle Mistress",
+    "type": "legend - sivir",
+    "effect": "When you recycle a rune, you may exhaust me to play a Gold gear token exhausted.\nWhen one or more enemy units die, ready me.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Solari Chief",
+    "type": "unit - mounttargon",
+    "effect": "When you play me, choose an enemy unit. If it is stunned, kill it. Otherwise, stun it. (It doesn't deal combat damage this turn.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Solari Shieldbearer",
+    "type": "unit - mounttargon",
+    "effect": "When you play me, stun a unit. (It doesn't deal combat damage this turn.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Solari Shrine",
+    "type": "gear",
+    "effect": "When you kill a stunned enemy unit, you may exhaust this to draw 1.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Spinning Axe",
+    "type": "gear - draven, equipment",
+    "effect": "[Quick-Draw]  (This has [Reaction]. When you play it, attach it to a unit you control.) \n[Equip] [C]  ([C]: Attach this to a unit you control.) \n[Temporary]  (If this is unattached, kill it at the start of its controller's Beginning Phase, before scoring.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Spirit Wheel",
+    "type": "gear",
+    "effect": "When you choose a friendly unit, you may pay [1] and exhaust this to draw 1.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Spirit's Refuge",
+    "type": "gear",
+    "effect": "When you play this, buff a friendly unit. (If it doesn't have a buff, it gets a +1 [S] buff.)\nFriendly buffed units have [Deflect] if they didn't already. (Opponents must pay [A] to choose those units with a spell or ability.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Sprite Call",
+    "type": "spell",
+    "effect": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Action] (Play on your turn or in showdowns.)\nPlay a ready 3 [S] Sprite unit token with [Temporary]. (Kill it at the start of its controller's Beginning Phase, before scoring.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Sprite Mother",
+    "type": "unit - fae",
+    "effect": "When you play me, play a ready 3 [S] Sprite unit token with [Temporary] here. (Kill it at the start of its controller's Beginning Phase, before scoring.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Stand United",
+    "type": "spell",
+    "effect": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Action] (Play on your turn or in showdowns.)\nBuff a friendly unit. Buffs give an additional +1 [S] to friendly units this turn. (To buff a unit, give it a +1 [S] buff if it doesn't already have one.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Strike Down",
+    "type": "spell",
+    "effect": "Choose an equipped friendly unit. It deals damage equal to its Might to an enemy unit. Then detach an Equipment from it.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Sun Disc",
+    "type": "gear",
+    "effect": "[T]: [Legion] \u2014 The next unit you play this turn enters ready. (Get the effect if you've played another card this turn.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Super Mega Death Rocket!",
+    "type": "spell - jinx",
+    "effect": "Deal 5 to a unit.\nWhen you conquer, you may discard 1 to return this from your trash to your hand.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Symbol of the Solari",
+    "type": "gear",
+    "effect": "If a combat where you are the attacker ends in a tie, recall ALL units instead. (Send them to base. This isn't a move. Ties are calculated after combat damage is dealt.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Temptation",
+    "type": "spell",
+    "effect": "[Repeat] [2]  (You may pay the additional cost to repeat this spell's effect.) \nMove an enemy unit to a location where there's a unit with the same controller.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "The Boss",
+    "type": "legend - sett",
+    "effect": "When a buffed unit you control would die, you may pay 1 rune of any type and exhaust me to spend its buff and recall it exhausted instead. (Send it to base. This isn't a move.)\nWhen you conquer, ready me.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "The Dreaming Tree",
+    "type": "battlefield",
+    "effect": "The first time you choose a friendly unit with a spell here each turn, draw 1.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Thousand-Tailed Watcher",
+    "type": "unit - ionia",
+    "effect": "[Accelerate] (You may pay \\[1]\\[C] as an additional cost to have me enter ready.)\nWhen you play me, give enemy units -3 [S] this turn, to a minimum of 1 [S].\"",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Thwonk!",
+    "type": "spell",
+    "effect": "[Action]  (Play on your turn or in showdowns.) \n[Repeat] [2]  (You may pay the additional cost to repeat this spell's effect.) \nStun an attacking unit.  (It doesn't deal combat damage this turn.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Tideturner",
+    "type": "unit - bilgewater",
+    "effect": "[Hidden] (Hide now for [A] to react with later for [0].)\nWhen you play me, you may choose a unit you control. Move me to its location and it to my original location.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Unforgiven",
+    "type": "legend - yasuo",
+    "effect": "2 energy, exhaust: Move a friendly unit to or from its base.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Unlicensed Armory",
+    "type": "gear",
+    "effect": "Discard 1, [T]: Choose a friendly unit. The next time it dies this turn, you may pay [C] to recall it exhausted instead. (Send it to base. This isn't a move.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Vanguard Helm",
+    "type": "gear",
+    "effect": "When a buffed friendly unit dies, buff another friendly unit. (If it doesn't have a buff, it gets a +1 [S] buff.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Vengeance",
+    "type": "spell",
+    "effect": "Kill a unit.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Wallop",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nAs you play this, you may spend a buff as an additional cost.\nReady a unit.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Whirlwind",
+    "type": "spell",
+    "effect": "Starting with the next player, each player may return a unit to its owner's hand.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Yasuo, Unforgiven",
+    "type": "legend - yasuo",
+    "effect": "[2], [T]: Move a friendly unit to or from its base.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Yone, Blademaster",
+    "type": "unit - yone, ionia, demon",
+    "effect": "[Weaponmaster]  (When you play me, you may [Equip] one of your Equipment to me for [A] less, even if it's already attached.) \nWhen I conquer an open battlefield, deal damage equal to my Might to an enemy unit in a base.",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Zhonya's Hourglass",
+    "type": "gear",
+    "effect": "[Hidden] (Hide now for [A] to react with later for [0].)\nThe next time a friendly unit would die, kill this instead. Recall that unit exhausted. (Send it to base. This isn't a move.)",
+    "zone": "ANYWHERE"
+  },
+  {
+    "name": "Rek'Sai, Breacher",
+    "type": "unit - reksai, thevoid",
+    "effect": "[Accelerate]  (You may pay \\[1]\\[C] as an additional cost to have me enter ready.)  [Assault]  (+1 [S] while I'm an attacker.)  Friendly units played from anywhere other than a player's hand have [Accelerate].",
+    "zone": "ANYWHERE (explicit)"
+  },
+  {
+    "name": "Forge of the Future",
+    "type": "gear",
+    "effect": "When you play this, play a 1 [S] Recruit unit token at your base.\nKill this: Recycle up to 4 cards from trashes.",
+    "zone": "BASE"
+  },
+  {
+    "name": "Showstopper",
+    "type": "spell - sett",
+    "effect": "Buff a friendly unit in your base, then move it to a battlefield. (If it doesn't have a buff, it gets a +1 [S] buff.)",
+    "zone": "BASE"
+  },
+  {
+    "name": "Xin Zhao, Vigilant",
+    "type": "unit - demacia, xinzhao",
+    "effect": "[Tank]  (I must be assigned combat damage first.) \nI enter ready if you have two or more other units in your base.",
+    "zone": "BASE"
+  },
+  {
+    "name": "Arcane Shift",
+    "type": "spell - ezreal",
+    "effect": "[Action]  (Play on your turn or in showdowns.) \nBanish a friendly unit, then its owner plays it, ignoring its cost. Deal 3 to an enemy unit at a battlefield. Banish this.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Blast Corps Cadet",
+    "type": "unit - piltover",
+    "effect": "You may pay \\[1]\\[C] as an additional cost to play me.\nWhen you play me, if you paid the additional cost, deal 2 to a unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Blast of Power",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nKill a unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Blood Money",
+    "type": "spell",
+    "effect": "[Action]  (Play on your turn or in showdowns.) \nKill a unit at a battlefield with 2 [S] or less. If it was an enemy unit, play a Gold gear token exhausted. If it was a friendly unit, play two Gold gear tokens exhausted.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Bullet Time",
+    "type": "spell - missfortune",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nPay any amount of [C] to deal that much damage to all enemy units at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Caitlyn, Patrolling",
+    "type": "unit - caitlyn, piltover",
+    "effect": "I must be assigned combat damage last.\n[T]: Deal damage equal to my Might to a unit at a battlefield. Use this ability only while I'm at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Carnivorous Snapvine",
+    "type": "unit - shadowisles",
+    "effect": "When you play me, choose an enemy unit at a battlefield. We deal damage equal to our Mights to each other.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Disintegrate",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nDeal 3 to a unit at a battlefield. If this kills it, draw 1.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Drag Under",
+    "type": "spell",
+    "effect": "[Action]  (Play on your turn or in showdowns.) \nI cost [2] less to play from anywhere other than your hand.\nKill a unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Fading Memories",
+    "type": "spell",
+    "effect": "Give a unit at a battlefield or a gear [Temporary]. (Kill it at the start of its controller's Beginning Phase, before scoring.)",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Falling Comet",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nDeal 6 to a unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Firestorm",
+    "type": "spell",
+    "effect": "Deal 3 to all enemy units at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Flurry of Blades",
+    "type": "spell",
+    "effect": "[Reaction] (Play any time, even before spells and abilities resolve.)\nDeal 1 to all units at battlefields.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Fox-Fire",
+    "type": "spell - ahri",
+    "effect": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Action] (Play on your turn or in showdowns.)\nKill any number of units at a battlefield with total Might 4 or less.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Gust",
+    "type": "spell",
+    "effect": "[Reaction] (Play any time, even before spells and abilities resolve.)\nReturn a unit at a battlefield with 3 [S] or less to its owner's hand.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Hextech Ray",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nDeal 3 to a unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Hidden Blade",
+    "type": "spell",
+    "effect": "[Hidden] (Hide now for [A] to react with later for [0].)\n[Action] (Play on your turn or in showdowns.)\nKill a unit at a battlefield. Its controller draws 2.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Hostile Takeover",
+    "type": "spell - renataglasc",
+    "effect": "[Hidden]  (Hide now for [A] to react with later for [0].) \nTake control of an enemy unit at a battlefield. Ready it.  (Start a combat if other enemies are there. Otherwise, conquer.) \nLose control of that unit and recall it at end of turn.  (Send it to base. This isn't a move.)",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Incinerate",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nDeal 2 to a unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Iron Ballista",
+    "type": "gear",
+    "effect": "This enters exhausted.\n[T]: Deal 2 to a unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Last Breath",
+    "type": "spell - yasuo",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nReady a friendly unit. It deals damage equal to its Might to an enemy unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Marching Orders",
+    "type": "spell",
+    "effect": "[Action]  (Play on your turn or in showdowns.) \n[Repeat] [3]  (You may pay the additional cost to repeat this spell's effect.) \nChoose a friendly unit anywhere and an enemy unit at a battlefield. They deal damage equal to their Mights to each other.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Piercing Light",
+    "type": "spell",
+    "effect": "[Repeat] \\[2]\\[C]  (You may pay the additional cost to repeat this spell's effect.) \nDeal 2 to a unit at a battlefield, then deal 2 to up to one other unit.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Possession",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nChoose an enemy unit at a battlefield. Take control of it and recall it. (Send it to your base. This isn't a move.)",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Rebuke",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nReturn a unit at a battlefield to its owner's hand.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Riptide Rex",
+    "type": "unit - pirate, bilgewater",
+    "effect": "When you play me, deal 6 to an enemy unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Sky Splitter",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nThis spell's Energy cost is reduced by the highest Might among units you control.\nDeal 5 to a unit at a battlefield.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Stormbringer",
+    "type": "spell - volibear",
+    "effect": "Choose a friendly unit in your base. Deal damage equal to its Might to all enemy units at a battlefield, then move your unit there.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Sudden Storm",
+    "type": "spell",
+    "effect": "[Hidden]** ** (Hide now for [A] to react with later for [0].) \n[Action]  (Play on your turn or in showdowns.) \nDeal 2 to a unit at a battlefield. If it's attacking, deal 4 to it instead.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "The Syren",
+    "type": "gear",
+    "effect": "[1], [T]: Move a friendly unit at a battlefield to its base.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Tibbers",
+    "type": "unit - annie",
+    "effect": "When you play me, deal 3 to all units at battlefields.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Udyr, Wildman",
+    "type": "unit - udyr, freljord",
+    "effect": "Spend my buff: Choose one you've not chosen this turn \u2014\n\\* Deal 2 to a unit at a battlefield.\n\\* Stun a unit at a battlefield.\n\\* Ready me.\n\\* Give me [Ganking] this turn.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Unchecked Power",
+    "type": "spell",
+    "effect": "Exhaust all friendly units, then deal 12 to ALL units at battlefields.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Void Seeker",
+    "type": "spell",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nDeal 4 to a unit at a battlefield. Draw 1.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Wages of Pain",
+    "type": "spell",
+    "effect": "[Hidden]  (Hide now for [A] to react with later for [0].) \n[Action]  (Play on your turn or in showdowns.) \nDeal 3 to a unit at a battlefield. Play a Gold gear token exhausted.",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Zenith Blade",
+    "type": "spell - leona",
+    "effect": "[Action] (Play on your turn or in showdowns.)\nStun an enemy unit at a battlefield. You may move a friendly unit to that enemy unit's battlefield. (A stunned unit doesn't deal combat damage this turn.)",
+    "zone": "BATTLEFIELD"
+  },
+  {
+    "name": "Ancient Warmonger",
+    "type": "unit - spirit, noxus",
+    "effect": "[Accelerate]  ( Y ou may pay \\[1]\\[C] as an additional cost to have me enter ready.) \nI have [Assault] equal to the number of enemy units here.  (+1 [S] while I'm an attacker for each instance of Assault.)",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Anivia, Primal",
+    "type": "unit - bird, anivia, freljord",
+    "effect": "When I attack, deal 3 to all enemy units here.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Crackshot Corsair",
+    "type": "unit - pirate, bilgewater",
+    "effect": "When I attack, deal 1 to an enemy unit here.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Dune Drake",
+    "type": "unit - dragon, shurima",
+    "effect": "When I attack, give me +2 [S] if there is a ready enemy unit here.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Ezreal, Dashing",
+    "type": "unit - ezreal, piltover",
+    "effect": "When I attack or defend, deal damage equal to my Might to an enemy unit here.\nI don't deal combat damage.\n[C]: [Action] \u2014 Move me to your base.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Janna, Savior",
+    "type": "unit - janna, zaun",
+    "effect": "[Reaction]  (Play any time, even before spells and abilities resolve, including to a battlefield you control.) \nWhen you play me, heal your units here, then move an enemy unit from here to its base.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Leona, Determined",
+    "type": "unit - leona, mounttargon",
+    "effect": "[Shield] (+1 [S] while I'm a defender.)\nWhen I attack, stun an enemy unit here. (It doesn't deal combat damage this turn.)",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Leona, Zealot",
+    "type": "unit - leona, mounttargon",
+    "effect": "If an opponent's score is within 3 points of the Victory Score, I enter ready.\nStunned enemy units here have -8 [S], to a minimum of 1 [S].",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Lucian, Gunslinger",
+    "type": "unit - lucian, demacia, sentinel",
+    "effect": "[Assault]  (+1 [S] while I'm an attacker.) \nWhen I attack, deal damage equal to my [Assault] to an enemy unit here.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Navori Fighting Pit",
+    "type": "battlefield",
+    "effect": "When you hold here, buff a unit here. (If it doesn't have a buff, it gets a +1 [S] buff.)",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Reaver's Row",
+    "type": "battlefield",
+    "effect": "When you defend here, you may move a friendly unit here to base.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Teemo, Strategist",
+    "type": "unit - yordle, teemo, bandle city",
+    "effect": "[Hidden] (Hide now for 1 rune of any type to react with later for 0 energy.)\nWhen I defend or I'm played from [Hidden], reveal the top 5 cards of your Main Deck. Deal 1 to an enemy unit here for each card with [Hidden], then recycle them.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Twisted Fate, Gambler",
+    "type": "unit - twistedfate, bilgewater",
+    "effect": "When I attack, reveal the top rune of your rune deck, then recycle it. Do one of the following based on its domain:\n\\* [R] \u2014 Deal 2 to an enemy unit here and 1 to all other enemy units here.\n\\* [B] \u2014 Draw 1.\n\\* [Y] \u2014 Stun an enemy unit.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Void Gate",
+    "type": "battlefield",
+    "effect": "Spells and abilities affecting units here each deal 1 Bonus Damage. (Each instance of damage the spell deals is increased by 1.)",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Volibear, Furious",
+    "type": "unit - volibear, freljord",
+    "effect": "[Deflect 2] (Opponents must pay \\[A]\\[A] to choose me with a spell or ability.)\nWhen I attack, deal 5 damage split among any number of enemy units here.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Warwick, Hunter",
+    "type": "unit - dog, warwick, zaun",
+    "effect": "I enter ready.\nWhen I attack, kill all damaged enemy units here.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Yasuo, Remorseful",
+    "type": "unit - yasuo, ionia",
+    "effect": "When I attack, deal damage equal to my Might to an enemy unit here.",
+    "zone": "BATTLEFIELD (here)"
+  },
+  {
+    "name": "Peak Guardian",
+    "type": "unit - mounttargon",
+    "effect": "When you play me, buff me. Then, if I am at a battlefield, buff all other friendly units there. (To buff a unit, give it a +1 [S] buff if it doesn't already have one.)",
+    "zone": "BATTLEFIELD (there)"
+  },
+  {
+    "name": "Siphon Power",
+    "type": "spell - viktor",
+    "effect": "[Reaction] (Play any time, even before spells and abilities resolve.)\nChoose a battlefield. Give friendly units there +1 [S] this turn and enemy units there -1 [S] this turn, to a minimum of 1 [S].",
+    "zone": "BATTLEFIELD (there)"
+  }
+]
