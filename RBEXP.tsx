@@ -1212,7 +1212,10 @@ const inferTargetRequirement = (effectTextRaw: string | undefined, ctx?: { here?
   if (!text.trim()) return { kind: "NONE" };
 
   // Detect if this is an optional "may" effect
-  const isOptional = /\byou may\b/.test(text) || /\bmay\s+(ready|buff|kill|move|return|recall|play|draw|channel|exhaust)\b/.test(text);
+  // Also treat "buff another" as optional since if there's no other unit, the effect can be declined
+  const isOptional = /\byou may\b/.test(text) || 
+      /\bmay\s+(ready|buff|kill|move|return|recall|play|draw|channel|exhaust)\b/.test(text) ||
+      /\bbuff\s+another\s+friendly\s+unit\b/.test(text);
 
   // Check for "Choose a friendly unit and an enemy unit" pattern (Challenge spell)
   // This needs to come before other checks since it requires TWO targets
