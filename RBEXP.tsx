@@ -10106,6 +10106,15 @@ export default function RiftboundGame() {
 
     const unitOptions = card.type === "Spell" ? getUnitTargetOptions(g, pid, targetReq, ctxBf, restrictBf) : [];
     const battlefieldOptions = card.type === "Spell" ? getBattlefieldTargetOptions(g, restrictBf) : [];
+    
+    // For UNIT_FRIENDLY_AND_ENEMY (Challenge spell), get separate friendly and enemy options
+    const isDualTarget = targetReq.kind === "UNIT_FRIENDLY_AND_ENEMY";
+    const friendlyOptions = isDualTarget 
+      ? getUnitTargetOptions(g, pid, { kind: "UNIT_FRIENDLY", count: 1 }, ctxBf, restrictBf)
+      : [];
+    const enemyOptions = isDualTarget
+      ? getUnitTargetOptions(g, pid, { kind: "UNIT_ENEMY", count: 1 }, ctxBf, restrictBf)
+      : [];
 
     const controlledBfs = g.battlefields.filter((bf) => bf.controller === pid);
 
@@ -10230,27 +10239,73 @@ export default function RiftboundGame() {
                 )}
 
                 {targetReq.kind !== "NONE" ? (
-                    <div style={{ marginTop: 8 }}>
-                      <select
-                          style={{ width: "100%", padding: 6 }}
-                          value={pendingTargets[0]?.kind === "NONE" ? "" : JSON.stringify(pendingTargets[0])}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            if (!v) setPendingTargets([{ kind: "NONE" }]);
-                            else setPendingTargets([JSON.parse(v)]);
-                          }}
-                      >
-                        <option value="">—</option>
-                        {(targetReq.kind === "BATTLEFIELD" ? battlefieldOptions : unitOptions).map((u) => (
-                            <option key={u.label} value={JSON.stringify(u.t)}>
-                              {u.label}
-                            </option>
-                        ))}
-                      </select>
-                      <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
-                        Note: Hidden-play target legality “here” is not fully enforced; use manual discipline if needed.
+                    isDualTarget ? (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 6 }}>Select a Friendly Unit AND an Enemy Unit</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <div>
+                            <div style={{ fontSize: 11, opacity: 0.7 }}>Friendly Unit</div>
+                            <select
+                                style={{ width: "100%", padding: 6, marginTop: 4 }}
+                                value={pendingTargets[0]?.kind === "NONE" ? "" : JSON.stringify(pendingTargets[0])}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  const newTarget = v ? JSON.parse(v) : { kind: "NONE" };
+                                  setPendingTargets([newTarget, pendingTargets[1] || { kind: "NONE" }]);
+                                }}
+                            >
+                              <option value="">— Select Friendly —</option>
+                              {friendlyOptions.map((u) => (
+                                  <option key={u.label} value={JSON.stringify(u.t)}>
+                                    {u.label}
+                                  </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 11, opacity: 0.7 }}>Enemy Unit</div>
+                            <select
+                                style={{ width: "100%", padding: 6, marginTop: 4 }}
+                                value={pendingTargets[1]?.kind === "NONE" ? "" : JSON.stringify(pendingTargets[1])}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  const newTarget = v ? JSON.parse(v) : { kind: "NONE" };
+                                  setPendingTargets([pendingTargets[0] || { kind: "NONE" }, newTarget]);
+                                }}
+                            >
+                              <option value="">— Select Enemy —</option>
+                              {enemyOptions.map((u) => (
+                                  <option key={u.label} value={JSON.stringify(u.t)}>
+                                    {u.label}
+                                  </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div style={{ marginTop: 8 }}>
+                        <select
+                            style={{ width: "100%", padding: 6 }}
+                            value={pendingTargets[0]?.kind === "NONE" ? "" : JSON.stringify(pendingTargets[0])}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (!v) setPendingTargets([{ kind: "NONE" }]);
+                              else setPendingTargets([JSON.parse(v)]);
+                            }}
+                        >
+                          <option value="">—</option>
+                          {(targetReq.kind === "BATTLEFIELD" ? battlefieldOptions : unitOptions).map((u) => (
+                              <option key={u.label} value={JSON.stringify(u.t)}>
+                                {u.label}
+                              </option>
+                          ))}
+                        </select>
+                        <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
+                          Note: Hidden-play target legality "here" is not fully enforced; use manual discipline if needed.
+                        </div>
+                      </div>
+                    )
                 ) : null}
               </div>
             </div>
@@ -10879,6 +10934,70 @@ export default function RiftboundGame() {
 
     .rb-hand::-webkit-scrollbar { height: 10px; }
     .rb-hand::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
+
+    .rb-runesRow {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      padding: 4px 8px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 8px;
+      flex-wrap: wrap;
+      min-height: 32px;
+    }
+
+    .rb-runesRowLabel {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-right: 4px;
+    }
+
+    .rb-chainPanel {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 12px;
+    }
+
+    .rb-chainItem {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      margin-bottom: 6px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .rb-chainItem:hover {
+      background: rgba(255,255,255,0.12);
+    }
+
+    .rb-chainItemActive {
+      border-color: rgba(130, 210, 255, 0.6);
+      background: rgba(130, 210, 255, 0.15);
+    }
+
+    .rb-chainItemLabel {
+      font-size: 12px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .rb-chainItemTargets {
+      font-size: 11px;
+      opacity: 0.8;
+      margin-top: 4px;
+    }
+
+    .rb-chainArrow {
+      font-size: 14px;
+      color: rgba(255, 180, 80, 0.9);
+    }
 
     .rb-actionHint {
       font-size: 12px;
@@ -11674,6 +11793,26 @@ export default function RiftboundGame() {
                 </div>
               </div>
 
+              {/* Opponent Runes Display */}
+              <div className="rb-runesRow">
+                <span className="rb-runesRowLabel">{opp} Runes:</span>
+                {oppState.runesInPlay.length === 0 ? <span className="rb-softText" style={{ fontSize: 11 }}>—</span> : null}
+                {oppState.runesInPlay.map((r) => {
+                  const img = cardImageUrl(r);
+                  return (
+                    <div
+                      key={r.instanceId}
+                      className={`rb-rune ${!r.isReady ? 'rb-runeExhausted' : ''}`}
+                      style={{ width: 24, height: 24, fontSize: 9 }}
+                      onClick={() => setHoverCard(r)}
+                      title={`${r.name} (${r.domain}) - ${r.isReady ? 'Ready' : 'Exhausted'}`}
+                    >
+                      {img ? <img src={img} alt={r.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }} /> : (r.domain?.[0] || 'R')}
+                    </div>
+                  );
+                })}
+              </div>
+
               <BaseRow pid={opp} />
 
               <div className="rb-matRow">
@@ -11703,6 +11842,37 @@ export default function RiftboundGame() {
                       </button>
                     </div>
                 ) : null}
+              </div>
+
+              {/* Active Player Runes Display */}
+              <div className="rb-runesRow">
+                <span className="rb-runesRowLabel">{me} Runes:</span>
+                {meState.runesInPlay.length === 0 ? <span className="rb-softText" style={{ fontSize: 11 }}>—</span> : null}
+                {meState.runesInPlay.map((r) => {
+                  const h = hoverPayPlan?.plan.runeUses[r.instanceId];
+                  const img = cardImageUrl(r);
+                  const cls = [
+                    'rb-rune',
+                    !r.isReady ? 'rb-runeExhausted' : '',
+                    h === 'EXHAUST' ? 'rb-runeGlowExhaust' : '',
+                    h === 'RECYCLE' ? 'rb-runeGlowRecycle' : '',
+                    h === 'BOTH' ? 'rb-runeGlowBoth' : '',
+                  ].filter(Boolean).join(' ');
+                  return (
+                    <div
+                      key={r.instanceId}
+                      className={cls}
+                      style={{ width: 28, height: 28, fontSize: 10 }}
+                      onClick={() => setHoverCard(r)}
+                      title={`${r.name} (${r.domain}) - ${r.isReady ? 'Ready' : 'Exhausted'}`}
+                    >
+                      {img ? <img src={img} alt={r.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }} /> : (r.domain?.[0] || 'R')}
+                    </div>
+                  );
+                })}
+                <span style={{ marginLeft: 8, fontSize: 11, opacity: 0.8 }}>
+                  Pool: {meState.runePool.energy}E • {sumPower(meState.runePool)}P
+                </span>
               </div>
 
               {renderHand()}
@@ -11764,6 +11934,49 @@ export default function RiftboundGame() {
                 Hover a hand card to preview payment: <span style={{ opacity: 0.95 }}>blue = Exhaust</span>, <span style={{ opacity: 0.95 }}>orange = Recycle</span>, <span style={{ opacity: 0.95 }}>purple = Both</span>.
               </div>
             </div>
+
+            {/* Visual Chain Panel */}
+            {g.chain.length > 0 && (
+              <div className="rb-chainPanel">
+                <div className="rb-panelTitle" style={{ marginBottom: 8 }}>Chain ({g.chain.length})</div>
+                {g.chain.map((item, idx) => {
+                  const isTop = idx === 0;
+                  const targetNames = item.targets
+                    ?.filter((t): t is { kind: "UNIT"; owner: PlayerId; instanceId: string } => t.kind === "UNIT")
+                    .map((t) => {
+                      const loc = locateUnit(g, t.owner, t.instanceId);
+                      return loc?.unit.name || "Unknown";
+                    }) || [];
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rb-chainItem ${isTop ? 'rb-chainItemActive' : ''}`}
+                      onClick={() => {
+                        const card = item.sourceCard;
+                        if (card) setHoverCard(card as any);
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div className="rb-chainItemLabel">
+                          {isTop ? '▶ ' : ''}{item.label}
+                        </div>
+                        {targetNames.length > 0 && (
+                          <div className="rb-chainItemTargets">
+                            <span className="rb-chainArrow">→</span> {targetNames.join(', ')}
+                          </div>
+                        )}
+                        {item.needsTargets && (
+                          <div className="rb-chainItemTargets" style={{ color: 'rgba(255, 180, 80, 0.9)' }}>
+                            Needs target selection
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, opacity: 0.6 }}>#{idx + 1}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div style={{ marginTop: 14 }}>
               <div className="rb-panelTitle">Legend</div>
