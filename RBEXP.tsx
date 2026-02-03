@@ -1663,11 +1663,12 @@ const killUnit = (game: GameState, owner: PlayerId, unit: CardInstance, reason =
     }
   }
 
-  // Handle attached equipment - goes to owner's trash when unit dies
+  // Handle attached equipment - returns to owner's base when unit dies
   if (unit.attachedGear && unit.attachedGear.length > 0) {
     for (const gear of unit.attachedGear) {
-      p.trash.push({ ...gear, isReady: false });
-      game.log.unshift(`${gear.name} (attached equipment) went to Trash.`);
+      // Equipment returns to base exhausted
+      p.base.gear.push({ ...gear, isReady: false });
+      game.log.unshift(`${gear.name} (attached equipment) returned to ${owner}'s Base.`);
     }
     unit.attachedGear = [];
   }
@@ -1997,6 +1998,28 @@ const maybeOpenNextWindow = (game: GameState) => {
 
     // Queue "When I attack" triggers.
     queueCombatTriggers(game, idx, attacker, "ATTACK");
+
+    // Queue battlefield "When you attack here" trigger for attacker
+    const bfAttackTrig = (bf.card.ability?.trigger || "").toLowerCase();
+    if (bfAttackTrig.includes("when you attack here") && bf.card.ability?.effect_text) {
+      const req = inferTargetRequirement(bf.card.ability.effect_text, { here: true });
+      game.chain.push({
+        id: makeId("chain"),
+        controller: attacker,
+        kind: "TRIGGERED_ABILITY",
+        label: `Battlefield Trigger: ${bf.card.name} (Attack)`,
+        effectText: bf.card.ability.effect_text,
+        contextBattlefieldIndex: idx,
+        needsTargets: req.kind !== "NONE",
+        targetRequirement: req,
+        restrictTargetsToBattlefieldIndex: idx,
+        targets: [{ kind: "NONE" }],
+      });
+      game.state = "CLOSED";
+      game.priorityPlayer = attacker;
+      game.passesInRow = 0;
+      game.log.unshift(`${bf.card.name} triggered (Attack here).`);
+    }
 
     const attackerUnits = bf.units[attacker].filter((u) => !u.stunned);
     const defenderUnits = bf.units[defender].filter((u) => !u.stunned);
@@ -2342,6 +2365,58 @@ const awakenPlayer = (game: GameState, player: PlayerId) => {
   }
   for (const r of p.runesInPlay) r.isReady = true;
   game.log.unshift(`${player} awoke: readied legend/units/gear/runes.`);
+
+  // Check for "At the start of your Beginning Phase" triggers on units
+  const allUnits = [...p.base.units, ...game.battlefields.flatMap((bf) => bf.units[player])];
+  for (const u of allUnits) {
+    const trig = (u.ability?.trigger || "").toLowerCase();
+    if ((trig.includes("at the start of your beginning phase") || trig.includes("at start of your beginning phase")) && u.ability?.effect_text) {
+      const req = inferTargetRequirement(u.ability.effect_text);
+      game.chain.push({
+        id: makeId("chain"),
+        controller: player,
+        kind: "TRIGGERED_ABILITY",
+        label: `${u.name} — Beginning Phase Trigger`,
+        effectText: u.ability.effect_text,
+        targets: [{ kind: "NONE" }],
+        needsTargets: req.kind !== "NONE",
+        targetRequirement: req,
+        sourceInstanceId: u.instanceId,
+      });
+      game.state = "CLOSED";
+      game.priorityPlayer = player;
+      game.passesInRow = 0;
+      game.log.unshift(`${u.name} triggered (Beginning Phase).`);
+    }
+  }
+
+  // Check for battlefield "At the start of each player's first Beginning Phase" triggers
+  // These only fire on turn 1 (P1) and turn 2 (P2's first turn)
+  const isFirstBeginningPhase = (player === game.startingPlayer && game.turnNumber === 1) ||
+                                 (player !== game.startingPlayer && game.turnNumber === 2);
+  if (isFirstBeginningPhase) {
+    for (const bf of game.battlefields) {
+      const trig = (bf.card.ability?.trigger || "").toLowerCase();
+      if (trig.includes("at the start of each player's first beginning phase") && bf.card.ability?.effect_text) {
+        const req = inferTargetRequirement(bf.card.ability.effect_text);
+        game.chain.push({
+          id: makeId("chain"),
+          controller: player,
+          kind: "TRIGGERED_ABILITY",
+          label: `${bf.card.name} — First Beginning Phase Trigger`,
+          effectText: bf.card.ability.effect_text,
+          contextBattlefieldIndex: bf.index,
+          targets: [{ kind: "NONE" }],
+          needsTargets: req.kind !== "NONE",
+          targetRequirement: req,
+        });
+        game.state = "CLOSED";
+        game.priorityPlayer = player;
+        game.passesInRow = 0;
+        game.log.unshift(`${bf.card.name} triggered (First Beginning Phase for ${player}).`);
+      }
+    }
+  }
 };
 
 // ----------------------------- Costs -----------------------------
@@ -4466,6 +4541,46 @@ const resolveEffectText = (
     const opp = controller === "P1" ? "P2" : "P1";
     game.players[opp].opponentCantPlayCardsThisTurn = true;
     game.log.unshift(`${opp} can't play cards this turn.`);
+    did = true;
+  }
+
+  // Forge of the Future: "Recycle up to N cards from trashes"
+  // This allows selecting cards from either player's trash and recycling them to the bottom of their owner's deck
+  const recycleFromTrashMatch = lower.match(/recycle\s+up\s+to\s+(\d+)\s+cards?\s+from\s+trashes?/i);
+  if (recycleFromTrashMatch) {
+    const maxCards = parseInt(recycleFromTrashMatch[1], 10) || 4;
+    
+    // Collect all cards from both players' trashes
+    const p1Trash = game.players.P1.trash;
+    const p2Trash = game.players.P2.trash;
+    
+    // For now, auto-select up to maxCards from the controller's trash first, then opponent's
+    // In a full implementation, this would need a UI for selecting specific cards
+    let recycled = 0;
+    
+    // Recycle from controller's trash first
+    while (recycled < maxCards && p.trash.length > 0) {
+      const card = p.trash.shift()!;
+      p.mainDeck.push(card);
+      game.log.unshift(`${card.name} recycled from ${controller}'s trash to bottom of deck.`);
+      recycled++;
+    }
+    
+    // Then from opponent's trash if we haven't reached max
+    const opp = otherPlayer(controller);
+    const oppPlayer = game.players[opp];
+    while (recycled < maxCards && oppPlayer.trash.length > 0) {
+      const card = oppPlayer.trash.shift()!;
+      oppPlayer.mainDeck.push(card);
+      game.log.unshift(`${card.name} recycled from ${opp}'s trash to bottom of deck.`);
+      recycled++;
+    }
+    
+    if (recycled > 0) {
+      game.log.unshift(`${controller} recycled ${recycled} card(s) from trashes.`);
+    } else {
+      game.log.unshift(`No cards in trashes to recycle.`);
+    }
     did = true;
   }
 
