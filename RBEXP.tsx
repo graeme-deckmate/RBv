@@ -287,7 +287,8 @@ type EngineAction =
     | { type: "DAMAGE_ASSIGN"; player: PlayerId; assignment: Record<string, number> }
     | { type: "DAMAGE_CONFIRM"; player: PlayerId }
     | { type: "DAMAGE_AUTO_ASSIGN"; player: PlayerId }
-    | { type: "KILL_GEAR_ACTIVATE"; player: PlayerId; gearInstanceId: string };
+    | { type: "KILL_GEAR_ACTIVATE"; player: PlayerId; gearInstanceId: string }
+    | { type: "SPEND_MY_BUFF_ACTIVATE"; player: PlayerId; unitInstanceId: string };
 
 interface ChainItem {
   id: string;
@@ -1040,7 +1041,8 @@ const checkBecomesMighty = (game: GameState, unit: CardInstance, previousMight: 
     // Check for legend triggers: "When one of your units becomes [Mighty]"
     // e.g., Fiora, Grand Duelist: "When one of your units becomes [Mighty], you may exhaust me to channel 1 rune exhausted."
     const legend = game.players[unit.controller].legend;
-    if (legend && !legend.exhausted) {
+    const legendReady = game.players[unit.controller].legendReady;
+    if (legend && legendReady) {
       const trig = (legend.ability?.trigger || "").toLowerCase();
       const eff = legend.ability?.effect_text || "";
       
@@ -6841,6 +6843,13 @@ export default function RiftboundGame() {
     return match ? match[1].trim() : null;
   };
 
+  // Helper to check if a unit has a "Spend my buff:" activated ability
+  const getSpendMyBuffAbility = (unit: CardInstance): string | null => {
+    const raw = unit.ability?.raw_text || unit.ability?.effect_text || "";
+    const match = raw.match(/Spend\s+my\s+buff[:\s—-]+([^.]+\.?)/i);
+    return match ? match[1].trim() : null;
+  };
+
   // Activate "Kill this:" ability on a gear
   const engineKillGearActivate = (d: GameState, pid: PlayerId, gearInstanceId: string): boolean => {
     const p = d.players[pid];
@@ -6884,6 +6893,64 @@ export default function RiftboundGame() {
     d.passesInRow = 0;
     d.priorityPlayer = pid;
     d.log.unshift(`Activated ability queued: ${gear.name} (Kill this).`);
+    
+    return true;
+  };
+
+  // Activate "Spend my buff:" ability on a unit
+  const engineSpendMyBuffActivate = (d: GameState, pid: PlayerId, unitInstanceId: string): boolean => {
+    // Find the unit in play (base or battlefield)
+    const loc = locateUnit(d, pid, unitInstanceId);
+    if (!loc) {
+      d.log.unshift("Unit not found.");
+      return false;
+    }
+    
+    const unit = loc.zone === "BASE" 
+      ? d.players[pid].base.units.find(u => u.instanceId === unitInstanceId)
+      : d.battlefields[loc.battlefieldIndex!].units[pid].find(u => u.instanceId === unitInstanceId);
+    
+    if (!unit) {
+      d.log.unshift("Unit not found.");
+      return false;
+    }
+    
+    // Check if unit has the ability
+    const spendAbility = getSpendMyBuffAbility(unit);
+    if (!spendAbility) {
+      d.log.unshift(`${unit.name} has no 'Spend my buff' ability.`);
+      return false;
+    }
+    
+    // Check if unit has a buff to spend
+    if (!unit.buffs || unit.buffs <= 0) {
+      d.log.unshift(`${unit.name} has no buff to spend.`);
+      return false;
+    }
+    
+    // Spend the buff
+    unit.buffs -= 1;
+    d.log.unshift(`${pid} spent ${unit.name}'s buff to activate its ability.`);
+    
+    // Queue the ability as an activated ability on the chain
+    const req = inferTargetRequirement(spendAbility, { here: loc.zone === "BF" });
+    const chainItem: ChainItem = {
+      id: makeId("chain"),
+      controller: pid,
+      kind: "ACTIVATED_ABILITY",
+      label: `${unit.name} — Spend my buff`,
+      effectText: spendAbility,
+      contextBattlefieldIndex: loc.zone === "BF" ? loc.battlefieldIndex : null,
+      needsTargets: req.kind !== "NONE",
+      targetRequirement: req,
+      targets: [{ kind: "NONE" }],
+      sourceInstanceId: unit.instanceId,
+    };
+    d.chain.push(chainItem);
+    d.state = "CLOSED";
+    d.passesInRow = 0;
+    d.priorityPlayer = pid;
+    d.log.unshift(`Activated ability queued: ${unit.name} (Spend my buff).`);
     
     return true;
   };
@@ -7562,6 +7629,9 @@ export default function RiftboundGame() {
       case "KILL_GEAR_ACTIVATE":
         engineKillGearActivate(d, action.player, action.gearInstanceId);
         return;
+      case "SPEND_MY_BUFF_ACTIVATE":
+        engineSpendMyBuffActivate(d, action.player, action.unitInstanceId);
+        return;
       default:
         return;
     }
@@ -7688,6 +7758,12 @@ export default function RiftboundGame() {
         const gearInstanceId = typeof (actionAny as any).gearInstanceId === "string" ? (actionAny as any).gearInstanceId : "";
         if (!gearInstanceId) return null;
         return { type: "KILL_GEAR_ACTIVATE", player: p, gearInstanceId } as EngineAction;
+      }
+
+      case "SPEND_MY_BUFF_ACTIVATE": {
+        const unitInstanceId = typeof (actionAny as any).unitInstanceId === "string" ? (actionAny as any).unitInstanceId : "";
+        if (!unitInstanceId) return null;
+        return { type: "SPEND_MY_BUFF_ACTIVATE", player: p, unitInstanceId } as EngineAction;
       }
 
       default:
@@ -9165,13 +9241,16 @@ export default function RiftboundGame() {
     return t.replace(/^[—-]\s*/, "").trim();
   };
 
-  // Helper to extract only the play trigger portion of effect text, excluding activated abilities like "Kill this:"
+  // Helper to extract only the play trigger portion of effect text, excluding activated abilities like "Kill this:", "Spend my buff:"
   const extractPlayTriggerEffect = (effectText: string): string => {
     // Remove "Kill this:" activated ability clauses
     // Pattern: "Kill this: <effect>" or "Kill this — <effect>"
     let cleaned = effectText.replace(/\bKill\s+this[:\s—-]+[^.]*\.?/gi, "").trim();
     // Also remove "Exhaust this:" activated abilities
     cleaned = cleaned.replace(/\bExhaust\s+this[:\s—-]+[^.]*\.?/gi, "").trim();
+    // Remove "Spend my buff:" activated abilities (e.g., Sett, Brawler)
+    // Pattern: "Spend my buff: <effect>" or "Spend my buff — <effect>"
+    cleaned = cleaned.replace(/\bSpend\s+my\s+buff[:\s—-]+[^.]*\.?/gi, "").trim();
     // Remove any trailing/leading punctuation artifacts
     cleaned = cleaned.replace(/^[.\s]+|[.\s]+$/g, "").trim();
     return cleaned;
@@ -9673,7 +9752,15 @@ export default function RiftboundGame() {
           <div style={{ marginTop: 10 }}>
             <div style={{ fontWeight: 700 }}>Base – Units</div>
             {p.base.units.length === 0 ? <div style={{ fontSize: 12, color: "#666" }}>—</div> : null}
-            {p.base.units.map((u) => renderCardPill(u))}
+            {p.base.units.map((u) => renderCardPill(u, (
+                getSpendMyBuffAbility(u) && u.buffs && u.buffs > 0 ? (
+                  <div style={{ marginTop: 6 }}>
+                    <button disabled={!canActAs(pid)} onClick={() => dispatchEngineAction({ type: "SPEND_MY_BUFF_ACTIVATE", player: pid, unitInstanceId: u.instanceId })}>
+                      Spend my buff: Activate
+                    </button>
+                  </div>
+                ) : null
+            )))}
           </div>
 
           <div style={{ marginTop: 10 }}>
@@ -9786,12 +9873,28 @@ export default function RiftboundGame() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700 }}>P1 Units</div>
                       {bf.units.P1.length === 0 ? <div style={{ fontSize: 12, color: "#666" }}>—</div> : null}
-                      {bf.units.P1.map((u) => renderCardPill(u))}
+                      {bf.units.P1.map((u) => renderCardPill(u, (
+                          getSpendMyBuffAbility(u) && u.buffs && u.buffs > 0 ? (
+                            <div style={{ marginTop: 6 }}>
+                              <button disabled={!canActAs("P1")} onClick={() => dispatchEngineAction({ type: "SPEND_MY_BUFF_ACTIVATE", player: "P1", unitInstanceId: u.instanceId })}>
+                                Spend my buff: Activate
+                              </button>
+                            </div>
+                          ) : null
+                      )))}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700 }}>P2 Units</div>
                       {bf.units.P2.length === 0 ? <div style={{ fontSize: 12, color: "#666" }}>—</div> : null}
-                      {bf.units.P2.map((u) => renderCardPill(u))}
+                      {bf.units.P2.map((u) => renderCardPill(u, (
+                          getSpendMyBuffAbility(u) && u.buffs && u.buffs > 0 ? (
+                            <div style={{ marginTop: 6 }}>
+                              <button disabled={!canActAs("P2")} onClick={() => dispatchEngineAction({ type: "SPEND_MY_BUFF_ACTIVATE", player: "P2", unitInstanceId: u.instanceId })}>
+                                Spend my buff: Activate
+                              </button>
+                            </div>
+                          ) : null
+                      )))}
                     </div>
                   </div>
                 </div>
@@ -11547,27 +11650,33 @@ export default function RiftboundGame() {
             <div className="rb-zoneLabel">{pid} base</div>
             <div className="rb-row rb-rowTight">
               {ps.base.units.map((u) => (
-                  <ArenaCard
-                      key={u.instanceId}
-                      card={u}
-                      size="xs"
-                      selected={pid === me ? arenaMove?.unitIds.includes(u.instanceId) : false}
-                      showReadyDot={true}
-                      onClick={() => {
-                        if (pid !== me) return;
-                        const clickable = canSelectMoveUnits && u.isReady;
-                        if (!clickable) return;
-                        setArenaMove((s) => {
-                          const from = { kind: "BASE" as const };
-                          if (!s || s.from.kind !== "BASE") return { from, unitIds: [u.instanceId] };
-                          const set = new Set(s.unitIds);
-                          if (set.has(u.instanceId)) set.delete(u.instanceId);
-                          else set.add(u.instanceId);
-                          const nextIds = Array.from(set);
-                          return nextIds.length === 0 ? null : { ...s, unitIds: nextIds };
-                        });
-                      }}
-                  />
+                  <div key={u.instanceId} style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
+                    <ArenaCard
+                        card={u}
+                        size="xs"
+                        selected={pid === me ? arenaMove?.unitIds.includes(u.instanceId) : false}
+                        showReadyDot={true}
+                        onClick={() => {
+                          if (pid !== me) return;
+                          const clickable = canSelectMoveUnits && u.isReady;
+                          if (!clickable) return;
+                          setArenaMove((s) => {
+                            const from = { kind: "BASE" as const };
+                            if (!s || s.from.kind !== "BASE") return { from, unitIds: [u.instanceId] };
+                            const set = new Set(s.unitIds);
+                            if (set.has(u.instanceId)) set.delete(u.instanceId);
+                            else set.add(u.instanceId);
+                            const nextIds = Array.from(set);
+                            return nextIds.length === 0 ? null : { ...s, unitIds: nextIds };
+                          });
+                        }}
+                    />
+                    {pid === me && getSpendMyBuffAbility(u) && u.buffs && u.buffs > 0 && (
+                      <button className="rb-miniButton" style={{ fontSize: 9 }} disabled={!canActAs(me)} onClick={() => dispatchEngineAction({ type: "SPEND_MY_BUFF_ACTIVATE", player: me, unitInstanceId: u.instanceId })}>
+                        Spend buff
+                      </button>
+                    )}
+                  </div>
               ))}
               {ps.base.gear.map((gear) => (
                   <ArenaCard key={gear.instanceId} card={gear} size="xs" showReadyDot={true} onClick={() => setHoverCard(gear)} />
